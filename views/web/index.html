@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="es">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Tienda Aimara POS</title>
+        <link rel="stylesheet" href="styles.css" />
+    </head>
+    <body>
+        <div class="shell">
+            <aside id="appSidebar" class="sidebar hidden">
+                <div class="brand">
+                    <div class="brand-mark">A</div>
+                    <div>
+                        <div class="brand-title">AIMARA</div>
+                        <div class="brand-subtitle">POS boutique</div>
+                    </div>
+                </div>
+                <nav class="menu">
+                    <button class="menu-item active" data-view="dashboard">
+                        Dashboard
+                    </button>
+                    <button class="menu-item" data-view="pos">
+                        Punto de Venta
+                    </button>
+                    <button class="menu-item" data-view="inventory">
+                        Inventario
+                    </button>
+                    <button class="menu-item" data-view="returns">
+                        Devoluciones
+                    </button>
+                    <button class="menu-item" data-view="history">
+                        Historial
+                    </button>
+                    <button class="menu-item" data-view="users">
+                        Usuarios
+                    </button>
+                </nav>
+                <div class="sidebar-footer">
+                    <button id="logoutBtn" class="ghost-btn">
+                        Cerrar sesión
+                    </button>
+                </div>
+            </aside>
+
+            <main class="content">
+                <header class="topbar">
+                    <div class="topbar-actions">
+                        <button id="themeBtn" class="ghost-btn">
+                            Cambiar tema
+                        </button>
+                    </div>
+                </header>
+
+                <section id="loginScreen" class="login-screen">
+                    <div class="login-card">
+                        <div class="login-badge">Tienda Aimara</div>
+                        <h2>Iniciar sesión</h2>
+                        <p>
+                            Accede al POS, inventario y reportes desde una
+                            interfaz HTML/CSS/JS.
+                        </p>
+                        <form id="loginForm" class="form-grid">
+                            <label>
+                                <span>Usuario</span>
+                                <input
+                                    id="loginUser"
+                                    type="text"
+                                    autocomplete="username"
+                                    required
+                                />
+                            </label>
+                            <label>
+                                <span>Contraseña</span>
+                                <input
+                                    id="loginPass"
+                                    type="password"
+                                    autocomplete="current-password"
+                                    required
+                                />
+                            </label>
+                            <button type="submit" class="primary-btn full">
+                                Entrar
+                            </button>
+                        </form>
+                        <div class="hint">
+                            Usuario inicial: admin | Contraseña: admin123
+                        </div>
+                    </div>
+                </section>
+
+                <section id="appArea" class="app-area hidden">
+                    <div id="dashboardView" class="view active">
+                        <div class="cards-grid" id="dashboardCards"></div>
+                        <div class="panel two-col">
+                            <div>
+                                <h3>Stock bajo</h3>
+                                <div id="lowStockList" class="list-card"></div>
+                            </div>
+                            <div>
+                                <h3>Acciones rápidas</h3>
+                                <div class="quick-actions">
+                                    <button class="primary-btn" data-jump="pos">
+                                        Cobrar venta
+                                    </button>
+                                    <button
+                                        class="secondary-btn"
+                                        data-jump="productEdit"
+                                        id="quickAddProductBtn"
+                                    >
+                                        Agregar producto
+                                    </button>
+                                    <button
+                                        class="secondary-btn"
+                                        data-jump="returns"
+                                    >
+                                        Procesar devolución
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="posView" class="view">
+                        <div class="panel pos-layout">
+                            <div>
+                                <div class="section-head">
+                                    <h2>Punto de Venta</h2>
+                                    <span id="posStatus" class="status-pill"
+                                        >Listo para escanear</span
+                                    >
+                                </div>
+                                <div class="scan-row">
+                                    <input
+                                        id="barcodeInput"
+                                        type="text"
+                                        placeholder="Escanear código de barras y presionar Enter"
+                                    />
+                                    <button
+                                        id="addBarcodeBtn"
+                                        class="secondary-btn"
+                                    >
+                                        Agregar
+                                    </button>
+                                </div>
+                                <div id="posWarnings" class="warnings"></div>
+                                <div class="table-wrap">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Código</th>
+                                                <th>Producto</th>
+                                                <th>Cantidad</th>
+                                                <th>Precio</th>
+                                                <th>Subtotal</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="cartTable"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="summary-card">
+                                <h3>Total a pagar</h3>
+                                <div id="cartTotal" class="big-number">
+                                    $0.00
+                                </div>
+                                <div class="summary-actions">
+                                    <button
+                                        id="previewSaleBtn"
+                                        class="primary-btn full"
+                                    >
+                                        Cobrar
+                                    </button>
+                                    <button
+                                        id="clearCartBtn"
+                                        class="secondary-btn full"
+                                    >
+                                        Limpiar carrito
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="inventoryView" class="view">
+                        <div class="panel">
+                            <div class="section-head">
+                                <h2>Inventario</h2>
+                                <div class="inline-actions">
+                                    <button
+                                        id="addProductBtn"
+                                        class="primary-btn"
+                                    >
+                                        Agregar producto
+                                    </button>
+                                    <button
+                                        id="importCsvBtn"
+                                        class="secondary-btn"
+                                    >
+                                        Importar CSV
+                                    </button>
+                                    <button
+                                        id="stickersBtn"
+                                        class="primary-btn"
+                                    >
+                                        Imprimir stickers
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="search-row">
+                                    <input
+                                        id="inventorySearch"
+                                        type="search"
+                                        placeholder="Buscar producto"
+                                    />
+                                </div>
+                                <div class="table-wrap inventory-table">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th class="print-col">
+                                                    <input
+                                                        type="checkbox"
+                                                        id="selectAllForPrint"
+                                                        title="Seleccionar todos para imprimir"
+                                                    />
+                                                </th>
+                                                <th>Código</th>
+                                                <th>Nombre</th>
+                                                <th>Categoría</th>
+                                                <th>Talla</th>
+                                                <th>Precio</th>
+                                                <th>Stock</th>
+                                                <th>Acción</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="inventoryTable"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="productEditView" class="view">
+                        <div class="panel">
+                            <div class="section-head">
+                                <h2 id="productEditTitle">Nuevo producto</h2>
+                                <button
+                                    class="ghost-btn"
+                                    onclick="setView('inventory')"
+                                >
+                                    Volver al inventario
+                                </button>
+                            </div>
+                            <form
+                                id="productForm"
+                                class="form-grid"
+                                style="max-width: 600px"
+                            >
+                                <input type="hidden" id="originalCode" />
+                                <label
+                                    ><span>Código</span
+                                    ><input
+                                        id="productCode"
+                                        type="text"
+                                        placeholder="Vacío para autogenerar"
+                                /></label>
+                                <label
+                                    ><span>Nombre</span
+                                    ><input
+                                        id="productName"
+                                        type="text"
+                                        required
+                                /></label>
+                                <label
+                                    ><span>Categoría</span
+                                    ><input id="productCategory" type="text"
+                                /></label>
+                                <label
+                                    ><span>Talla</span
+                                    ><input id="productSize" type="text"
+                                /></label>
+                                <label
+                                    ><span>Precio</span
+                                    ><input
+                                        id="productPrice"
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        required
+                                /></label>
+                                <label
+                                    ><span>Stock</span
+                                    ><input
+                                        id="productStock"
+                                        type="number"
+                                        min="0"
+                                        required
+                                /></label>
+                                <div class="form-actions">
+                                    <button type="submit" class="primary-btn">
+                                        Guardar
+                                    </button>
+                                    <button
+                                        type="button"
+                                        id="clearProductBtn"
+                                        class="secondary-btn"
+                                    >
+                                        Limpiar
+                                    </button>
+                                    <button
+                                        type="button"
+                                        id="deleteProductBtn"
+                                        class="danger-btn"
+                                        style="display: none"
+                                    >
+                                        Eliminar
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div id="returnsView" class="view">
+                        <div class="panel">
+                            <div class="section-head">
+                                <h2>Control de devoluciones</h2>
+                            </div>
+                            <div class="scan-row">
+                                <input
+                                    id="returnTicketInput"
+                                    type="number"
+                                    min="1"
+                                    placeholder="Número de factura / ticket"
+                                />
+                                <button
+                                    id="loadReturnTicketBtn"
+                                    class="secondary-btn"
+                                >
+                                    Buscar ticket
+                                </button>
+                            </div>
+                            <div class="table-wrap">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Código</th>
+                                            <th>Producto</th>
+                                            <th>Comprado</th>
+                                            <th>Devuelto</th>
+                                            <th>Restante</th>
+                                            <th>Seleccionar</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="returnTable"></tbody>
+                                </table>
+                            </div>
+                            <div class="grid-2 return-actions">
+                                <label
+                                    ><span>Cantidad a devolver</span
+                                    ><input
+                                        id="returnQty"
+                                        type="number"
+                                        min="1"
+                                /></label>
+                                <label
+                                    ><span>Motivo</span
+                                    ><input id="returnReason" type="text"
+                                /></label>
+                            </div>
+                            <button id="processReturnBtn" class="primary-btn">
+                                Procesar devolución
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="historyView" class="view">
+                        <div class="panel">
+                            <div class="section-head">
+                                <h2>Historial y reportes</h2>
+                                <div class="inline-actions">
+                                    <button
+                                        id="refreshHistoryBtn"
+                                        class="secondary-btn"
+                                    >
+                                        Actualizar
+                                    </button>
+                                    <button id="reprintBtn" class="primary-btn">
+                                        Reimprimir factura
+                                    </button>
+                                    <button
+                                        id="editSaleBtn"
+                                        class="secondary-btn"
+                                    >
+                                        Editar venta
+                                    </button>
+                                    <button id="voidSaleBtn" class="danger-btn">
+                                        Anular venta
+                                    </button>
+                                </div>
+                            </div>
+                            <div
+                                class="cards-grid small"
+                                id="historyCards"
+                            ></div>
+                            <div class="table-wrap">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Ticket</th>
+                                            <th>Fecha</th>
+                                            <th>Total bruto</th>
+                                            <th>Devuelto</th>
+                                            <th>Neto</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="historyTable"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="usersView" class="view">
+                        <div class="panel">
+                            <div class="section-head">
+                                <h2>Gestión de Usuarios</h2>
+                            </div>
+                            <div class="grid-2">
+                                <form id="userForm" class="form-grid">
+                                    <input type="hidden" id="userId" />
+                                    <label
+                                        ><span>Usuario</span
+                                        ><input
+                                            id="userName"
+                                            type="text"
+                                            required
+                                    /></label>
+                                    <label
+                                        ><span>Contraseña</span
+                                        ><input
+                                            id="userPassword"
+                                            type="password"
+                                            placeholder="Solo para nuevos o para cambiar"
+                                    /></label>
+                                    <label>
+                                        <span>Rol</span>
+                                        <select
+                                            id="userRole"
+                                            style="
+                                                width: 100%;
+                                                border: 1px solid var(--line);
+                                                background: rgba(
+                                                    255,
+                                                    255,
+                                                    255,
+                                                    0.82
+                                                );
+                                                border-radius: 16px;
+                                                padding: 13px 14px;
+                                                outline: none;
+                                                font: inherit;
+                                            "
+                                        >
+                                            <option value="cajero">
+                                                Cajero
+                                            </option>
+                                            <option value="admin">
+                                                Administrador
+                                            </option>
+                                        </select>
+                                    </label>
+                                    <div class="form-actions">
+                                        <button
+                                            type="submit"
+                                            class="primary-btn"
+                                        >
+                                            Guardar
+                                        </button>
+                                        <button
+                                            type="button"
+                                            id="clearUserBtn"
+                                            class="secondary-btn"
+                                        >
+                                            Limpiar
+                                        </button>
+                                    </div>
+                                </form>
+                                <div class="table-wrap">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Usuario</th>
+                                                <th>Rol</th>
+                                                <th>Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="usersTable"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+
+        <div id="modalRoot" class="modal-root hidden">
+            <div class="modal-card">
+                <div class="modal-title" id="modalTitle"></div>
+                <div class="modal-body" id="modalBody"></div>
+                <div class="modal-actions" id="modalActions"></div>
+            </div>
+        </div>
+
+        <script src="app.js"></script>
+    </body>
+</html>
