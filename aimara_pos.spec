@@ -1,20 +1,23 @@
 # -*- mode: python ; coding: utf-8 -*-
 #
-# PyInstaller spec – Aimara POS
-# Genera un único AimaraPos.exe para Windows x64.
+# PyInstaller spec multiplataforma – Aimara POS
+#   · Windows : dist/AimaraPos.exe  (onefile, con consola)
+#   · macOS   : dist/AimaraPos.app  (bundle estándar, sin consola)
 #
-# Para construir:
+# Uso:
 #   pyinstaller aimara_pos.spec --clean
 #
-# Requiere (ejecutar primero):
+# Dependencias previas:
 #   pip install pyinstaller reportlab "python-barcode[images]" Pillow
 #
 
+import sys as _sys
 from PyInstaller.utils.hooks import collect_submodules, collect_data_files
 
+IS_MAC = _sys.platform == "darwin"
 block_cipher = None
 
-# ── Recolectar submódulos dinámicos de reportlab y python-barcode ─────────────
+# ── Submódulos dinámicos (reportlab y barcode los carga con __import__) ───────
 hidden = (
     collect_submodules("reportlab")
     + collect_submodules("barcode")
@@ -30,10 +33,7 @@ hidden = (
     ]
 )
 
-extra_datas = (
-    collect_data_files("reportlab")
-    + collect_data_files("barcode")
-)
+extra_datas = collect_data_files("reportlab") + collect_data_files("barcode")
 
 # ── Análisis del árbol de importaciones ──────────────────────────────────────
 a = Analysis(
@@ -41,14 +41,13 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
-        # Archivos web (HTML/CSS/JS) → se extraen en sys._MEIPASS/views/web/
+        # Archivos web estáticos → quedan en _MEIPASS/views/web/
         ("views/web", "views/web"),
     ] + extra_datas,
     hiddenimports=hidden,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    # Excluir la interfaz de escritorio (customtkinter) que ya no se usa
     excludes=["customtkinter", "tkinter", "_tkinter", "tcl", "tk"],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
@@ -58,27 +57,75 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
-exe = EXE(
-    pyz,
-    a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    [],
-    name="AimaraPos",
-    debug=False,
-    bootloader_ignore_signals=False,
-    strip=False,
-    # UPX desactivado: evita falsos positivos en antivirus
-    upx=False,
-    upx_exclude=[],
-    runtime_tmpdir=None,
-    # console=True → muestra la ventana de comandos con la URL del servidor
-    console=True,
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-    # icon="assets/icon.ico",  # Descomenta y agrega tu .ico para personalizar
-)
+# ═══════════════════════════════════════════════════════════════════════════════
+#  macOS → onedir + BUNDLE  →  AimaraPos.app  (arrastrar a /Applications)
+# ═══════════════════════════════════════════════════════════════════════════════
+if IS_MAC:
+    exe = EXE(
+        pyz,
+        a.scripts,
+        [],                     # binaries/datas van en COLLECT, no en el exe
+        exclude_binaries=True,
+        name="AimaraPos",
+        debug=False,
+        bootloader_ignore_signals=False,
+        strip=False,
+        upx=False,
+        console=False,          # Sin ventana de terminal en macOS
+        disable_windowed_traceback=False,
+        argv_emulation=False,
+        target_arch=None,
+        codesign_identity=None,
+        entitlements_file=None,
+        icon=None,              # Agrega un .icns aquí si tienes icono
+    )
+    coll = COLLECT(
+        exe,
+        a.binaries,
+        a.zipfiles,
+        a.datas,
+        strip=False,
+        upx=False,
+        upx_exclude=[],
+        name="AimaraPos",
+    )
+    app = BUNDLE(
+        coll,
+        name="AimaraPos.app",
+        icon=None,
+        bundle_identifier="com.tiendaaimara.pos",
+        info_plist={
+            "CFBundleName":             "Aimara POS",
+            "CFBundleDisplayName":      "Aimara POS",
+            "CFBundleShortVersionString": "1.0.0",
+            "NSHighResolutionCapable":  True,
+            "LSMinimumSystemVersion":   "12.0",
+        },
+    )
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Windows → onefile  →  AimaraPos.exe  (un único archivo portable)
+# ═══════════════════════════════════════════════════════════════════════════════
+else:
+    exe = EXE(
+        pyz,
+        a.scripts,
+        a.binaries,
+        a.zipfiles,
+        a.datas,
+        [],
+        name="AimaraPos",
+        debug=False,
+        bootloader_ignore_signals=False,
+        strip=False,
+        upx=False,              # UPX off: evita falsos positivos en antivirus
+        upx_exclude=[],
+        runtime_tmpdir=None,
+        console=True,           # Muestra ventana con la URL del servidor
+        disable_windowed_traceback=False,
+        argv_emulation=False,
+        target_arch=None,
+        codesign_identity=None,
+        entitlements_file=None,
+        icon=None,              # Agrega un .ico aquí si tienes icono
+    )

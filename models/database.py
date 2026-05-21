@@ -4,11 +4,19 @@ from pathlib import Path
 
 
 def _get_db_path() -> str:
-    """Devuelve la ruta a la BD.
-    - En .exe (PyInstaller): junto al ejecutable (persistente entre reinicios).
-    - En desarrollo: en la raíz del proyecto.
+    """Devuelve la ruta a la BD según el entorno de ejecución.
+    - macOS .app : ~/Documents/AimaraPos/pos_aimara.db  (persistente)
+    - Windows .exe: carpeta del .exe                    (persistente)
+    - Desarrollo  : raíz del proyecto
     """
     if getattr(sys, "frozen", False):
+        import platform
+
+        if platform.system() == "Darwin":
+            data_dir = Path.home() / "Documents" / "AimaraPos"
+            data_dir.mkdir(parents=True, exist_ok=True)
+            return str(data_dir / "pos_aimara.db")
+        # Windows / Linux: junto al ejecutable
         return str(Path(sys.executable).resolve().parent / "pos_aimara.db")
     return str(Path(__file__).resolve().parent.parent / "pos_aimara.db")
 

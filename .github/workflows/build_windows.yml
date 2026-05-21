@@ -1,83 +1,145 @@
-name: Build Windows EXE
+name: Build & Release
 
-# Se ejecuta al hacer push a main/master, al crear un tag v*.*.* ,
-# o manualmente desde la pestaña Actions de GitHub.
 on:
   push:
     branches: [main, master]
-    tags:
-      - "v*.*.*"
+    tags: ["v*.*.*"]
   workflow_dispatch:
-    inputs:
-      version:
-        description: "Versión del release (ej: 1.0.0)"
-        required: false
-        default: "dev"
 
+# ──────────────────────────────────────────────────────────────────────────────
 jobs:
-  build:
-    name: PyInstaller → AimaraPos.exe
+  # ── Windows: AimaraPos.exe (onefile) ────────────────────────────────────────
+  build-windows:
+    name: Windows EXE
     runs-on: windows-latest
-
     steps:
-      # ── 1. Obtener el código ─────────────────────────────────────────────────
-      - name: Checkout código
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # ── 2. Configurar Python 3.11 x64 ───────────────────────────────────────
-      - name: Configurar Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           architecture: "x64"
           cache: "pip"
 
-      # ── 3. Instalar dependencias ─────────────────────────────────────────────
       - name: Instalar dependencias
-        run: |
-          python -m pip install --upgrade pip
-          pip install pyinstaller "reportlab>=4.0" "python-barcode[images]>=0.15" "Pillow>=10.0"
+        run: pip install pyinstaller "reportlab>=4.0" "python-barcode[images]>=0.15" "Pillow>=10.0"
 
-      # ── 4. Construir el ejecutable ───────────────────────────────────────────
-      - name: Construir AimaraPos.exe
+      - name: Build EXE
         run: pyinstaller aimara_pos.spec --clean --noconfirm
 
-      # ── 5. Verificar que el exe existe ───────────────────────────────────────
       - name: Verificar build
         run: |
           if (Test-Path "dist\AimaraPos.exe") {
-            $size = (Get-Item "dist\AimaraPos.exe").Length / 1MB
-            Write-Host "✅ AimaraPos.exe generado (~$([math]::Round($size,1)) MB)"
-          } else {
-            Write-Error "❌ dist\AimaraPos.exe no encontrado"
-            exit 1
-          }
+            $mb = [math]::Round((Get-Item "dist\AimaraPos.exe").Length / 1MB, 1)
+            Write-Host "OK AimaraPos.exe generado (~${mb} MB)"
+          } else { Write-Error "FALLO: AimaraPos.exe no encontrado"; exit 1 }
 
-      # ── 6. Subir como artefacto de la acción ────────────────────────────────
-      - name: Subir artefacto
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: AimaraPos-Windows-x64
           path: dist/AimaraPos.exe
           retention-days: 30
 
-      # ── 7. Crear Release en GitHub (solo en tags v*.*.*) ─────────────────────
-      - name: Crear GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
+  # ── macOS: AimaraPos.dmg (.app bundle en DMG) ────────────────────────────────
+  build-macos:
+    name: macOS DMG
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Instalar dependencias
+        run: pip install pyinstaller "reportlab>=4.0" "python-barcode[images]>=0.15" "Pillow>=10.0"
+
+      - name: Build .app
+        run: pyinstaller aimara_pos.spec --clean --noconfirm
+
+      - name: Verificar .app
+        run: |
+          if [ -d "dist/AimaraPos.app" ]; then
+            echo "OK AimaraPos.app generado"
+          else
+            echo "FALLO: AimaraPos.app no encontrado"; exit 1
+          fi
+
+      - name: Crear DMG
+        run: |
+          brew install create-dmg
+          create-dmg \
+            --volname "Aimara POS" \
+            --window-pos 200 120 \
+            --window-size 600 380 \
+            --icon-size 100 \
+            --icon "AimaraPos.app" 175 190 \
+            --hide-extension "AimaraPos.app" \
+            --app-drop-link 425 190 \
+            dist/AimaraPos.dmg \
+            dist/AimaraPos.app \
+          || {
+            echo "create-dmg fallo, usando hdiutil como fallback"
+            mkdir -p /tmp/dmg_src
+            cp -r dist/AimaraPos.app /tmp/dmg_src/
+            ln -s /Applications /tmp/dmg_src/Applications
+            hdiutil create \
+              -volname "Aimara POS" \
+              -srcfolder /tmp/dmg_src \
+              -ov -format UDZO \
+              dist/AimaraPos.dmg
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AimaraPos-macOS
+          path: dist/AimaraPos.dmg
+          retention-days: 30
+
+  # ── Release: adjunta ambos archivos al GitHub Release (solo en tags v*.*.*) ──
+  release:
+    name: GitHub Release
+    needs: [build-windows, build-macos]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Descargar AimaraPos.exe
+        uses: actions/download-artifact@v4
+        with:
+          name: AimaraPos-Windows-x64
+          path: artifacts
+
+      - name: Descargar AimaraPos.dmg
+        uses: actions/download-artifact@v4
+        with:
+          name: AimaraPos-macOS
+          path: artifacts
+
+      - name: Publicar Release
         uses: softprops/action-gh-release@v2
         with:
           name: "Aimara POS ${{ github.ref_name }}"
           body: |
             ## Aimara POS ${{ github.ref_name }}
 
-            ### Instalación
-            1. Descarga `AimaraPos.exe`
-            2. Colócalo en una carpeta propia (ej: `C:\AimaraPos\`)
-            3. Ejecuta `AimaraPos.exe` con doble clic
-            4. El navegador se abre automáticamente en `http://127.0.0.1:8765`
-            5. La base de datos `pos_aimara.db` se crea junto al `.exe`
+            | Plataforma | Archivo | Instrucciones |
+            |---|---|---|
+            | Windows 10/11 | `AimaraPos.exe` | Doble clic — no requiere instalación |
+            | macOS 12+ | `AimaraPos.dmg` | Abrir DMG → arrastrar a Aplicaciones |
 
-            > **Nota:** No requiere Python instalado.
-          files: dist/AimaraPos.exe
+            ### Primer uso
+            1. Ejecuta `AimaraPos` (Windows: .exe / macOS: .app)
+            2. El navegador se abre automáticamente en `http://127.0.0.1:8765`
+            3. Usuario: **admin** · Contraseña: **admin123**
+
+            ### Datos persistentes
+            - **Windows**: `pos_aimara.db` se crea junto al `.exe`
+            - **macOS**: `~/Documents/AimaraPos/pos_aimara.db`
+          files: |
+            artifacts/AimaraPos.exe
+            artifacts/AimaraPos.dmg
           draft: false
           prerelease: false

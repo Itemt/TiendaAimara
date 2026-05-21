@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 from models.database import init_db
@@ -430,6 +431,14 @@ class AimaraAPI:
             {"added": added, "updated": updated, "duplicates": duplicates},
         )
 
+    def _get_web_output_dir(self) -> Path:
+        """Directorio donde se guardan los PDFs generados para servir al navegador.
+        En frozen usa sys._MEIPASS (donde están los archivos web).
+        """
+        if getattr(sys, "frozen", False):
+            return Path(sys._MEIPASS) / "views" / "web"  # type: ignore[attr-defined]
+        return Path(__file__).resolve().parent / "views" / "web"
+
     def generate_stickers(self, payload=None):
         protected = self._require_login()
         if protected:
@@ -455,7 +464,7 @@ class AimaraAPI:
             }
             for item in source
         ]
-        output_dir = Path(__file__).resolve().parent / "views" / "web"
+        output_dir = self._get_web_output_dir()
         output_filename = str(output_dir / "stickers_a4.pdf")
         PrinterManager.generate_stickers_pdf(printable, output_filename)
         return self._response(
@@ -489,7 +498,7 @@ class AimaraAPI:
             }
             for item in source
         ]
-        output_dir = Path(__file__).resolve().parent / "views" / "web"
+        output_dir = self._get_web_output_dir()
         output_filename = str(output_dir / "stickers_thermal.pdf")
         PrinterManager.generate_thermal_stickers_pdf(printable, output_filename)
         return self._response(
