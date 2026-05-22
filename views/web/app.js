@@ -84,6 +84,9 @@ function setView(viewName) {
   );
   $$(".view").forEach((view) => view.classList.remove("active"));
   $(`#${viewName}View`).classList.add("active");
+  if (viewName === "returns") {
+    loadRecentSalesForReturns();
+  }
 }
 
 function productToRow(product) {
@@ -289,89 +292,7 @@ async function refreshHistory() {
     });
 }
 
-async function refreshUsers() {
-  if (state.user && state.user.rol !== "admin") return;
-  try {
-    const response = await apiCall("get_users", {});
-    state.users = response.data || [];
-    $("#usersTable").innerHTML = state.users
-      .map(
-        (u) => `
-      <tr data-user-id="${u.id}">
-        <td>${u.username}</td>
-        <td>${u.rol === "admin" ? "Administrador" : "Cajero"}</td>
-        <td>
-          <button class="ghost-btn edit-user-btn" data-id="${u.id}" style="padding: 4px 8px; font-size: 0.85rem;">Editar</button>
-          <button class="danger-btn delete-user-btn" data-id="${u.id}" style="padding: 4px 8px; font-size: 0.85rem;">Eliminar</button>
-        </td>
-      </tr>
-    `,
-      )
-      .join("");
-
-    $$(".edit-user-btn").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        const id = parseInt(e.target.dataset.id);
-        const user = state.users.find((u) => u.id === id);
-        if (user) {
-          $("#userId").value = user.id;
-          $("#userName").value = user.username;
-          $("#userPassword").value = "";
-          $("#userRole").value = user.rol;
-        }
-      });
-    });
-
-    $$(".delete-user-btn").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        const id = parseInt(e.target.dataset.id);
-        showModal(
-          "Eliminar usuario",
-          "¿Seguro que deseas eliminar este usuario?",
-          [
-            { label: "Cancelar", kind: "secondary-btn" },
-            {
-              label: "Eliminar",
-              kind: "danger-btn",
-              onClick: async () => {
-                const res = await apiCall("delete_user", { id: id });
-                showModal("Usuarios", res.message, [
-                  { label: "Aceptar", kind: "primary-btn" },
-                ]);
-                refreshUsers();
-              },
-            },
-          ],
-        );
-      });
-    });
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-async function saveUser(event) {
-  event.preventDefault();
-  const payload = {
-    id: $("#userId").value ? parseInt($("#userId").value) : null,
-    username: $("#userName").value,
-    password: $("#userPassword").value,
-    rol: $("#userRole").value,
-  };
-  const response = await apiCall("save_user", payload);
-  showModal("Usuarios", response.message, [
-    { label: "Aceptar", kind: "primary-btn" },
-  ]);
-  clearUserForm();
-  refreshUsers();
-}
-
-function clearUserForm() {
-  $("#userId").value = "";
-  $("#userName").value = "";
-  $("#userPassword").value = "";
-  $("#userRole").value = "cajero";
-}
+// Removida la funcionalidad de usuarios.
 
 function showToast(text) {
   $("#posStatus").textContent = text;
@@ -398,18 +319,6 @@ function updateSelectAllState() {
   }
 }
 
-function syncInventoryWarning(product) {
-  if (Number(product.stock) < 5) {
-    const chipId = `warn-${product.codigo}`;
-    if (!document.getElementById(chipId)) {
-      const warning = document.createElement("div");
-      warning.id = chipId;
-      warning.className = "warn-chip";
-      warning.textContent = `Stock bajo: ${product.nombre} (${product.stock})`;
-      $("#posWarnings").prepend(warning);
-    }
-  }
-}
 
 async function addToCartByCode(code) {
   const response = await apiCall("get_product", code);
@@ -428,7 +337,6 @@ async function addToCartByCode(code) {
     });
   }
   renderCart();
-  syncInventoryWarning(product);
 }
 
 async function submitLogin(event) {
@@ -448,13 +356,6 @@ async function bootstrapApp() {
   await refreshDashboard();
   await refreshProducts();
   await refreshHistory();
-  if (state.user && state.user.rol === "admin") {
-    await refreshUsers();
-  } else {
-    // Hide users menu item if not admin
-    const usersBtn = document.querySelector('[data-view="users"]');
-    if (usersBtn) usersBtn.style.display = "none";
-  }
   setView("dashboard");
   $("#barcodeInput").focus();
 }
@@ -589,12 +490,7 @@ async function previewSale() {
   const preview = await apiCall("get_sale_preview", state.cart);
   const items = preview.data.items || [];
   const total = preview.data.total || 0;
-  const warnings = preview.data.low_stock_hits || [];
-  const warningsHtml = warnings.length
-    ? `<div class="warn-chip">Productos con stock bajo: ${warnings.map((item) => `${item.nombre} (${item.stock})`).join(", ")}</div>`
-    : "";
   const body = `
-    <div>${warningsHtml}</div>
     <div class="list-card">${items.map((item) => `<div class="list-item"><strong>${item.nombre}</strong><br/>${item.cantidad} x ${money(item.precio)} = ${money(item.subtotal)}</div>`).join("")}</div>
     <h3 style="margin-top:16px;">Total: ${money(total)}</h3>
   `;
@@ -605,6 +501,15 @@ async function previewSale() {
       kind: "primary-btn",
       onClick: async () => {
         const result = await apiCall("create_sale", state.cart);
+        if (result.ok && result.data && result.data.output) {
+          const a = document.createElement("a");
+          a.href = result.data.output + "?t=" + Date.now();
+          a.target = "_blank";
+          a.download = `factura_${result.data.id_venta}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        }
         showModal(
           "Venta confirmada",
           `Ticket #${result.data.id_venta} guardado e impreso.`,
@@ -620,67 +525,147 @@ async function previewSale() {
   ]);
 }
 
-async function loadReturnTicket() {
-  const ticket = Number($("#returnTicketInput").value || 0);
+async function loadRecentSalesForReturns() {
+  const response = await apiCall("get_sales", {});
+  const sales = response.data || [];
+  if (sales.length === 0) {
+    $("#recentSalesReturnList").innerHTML = '<div class="list-item">No hay ventas registradas.</div>';
+    return;
+  }
+  $("#recentSalesReturnList").innerHTML = sales
+    .slice(0, 15)
+    .map(
+      (sale) => `
+    <div class="list-item recent-sale-return-item" data-sale-id="${sale.id_venta}" style="cursor: pointer; transition: background 0.2s; padding: 10px; margin-bottom: 4px; border-radius: 8px;">
+      <div style="display: flex; justify-content: space-between; font-weight: bold;">
+        <span>Ticket #${sale.id_venta}</span>
+        <span>${money(sale.total_neto)}</span>
+      </div>
+      <div style="font-size: 0.8rem; color: var(--muted); margin-top: 4px;">
+        ${sale.fecha}
+      </div>
+    </div>
+  `,
+    )
+    .join("");
+
+  $("#recentSalesReturnList")
+    .querySelectorAll(".recent-sale-return-item")
+    .forEach((item) => {
+      item.addEventListener("click", async () => {
+        $("#recentSalesReturnList")
+          .querySelectorAll(".recent-sale-return-item")
+          .forEach((i) => {
+            i.style.background = "";
+            i.style.border = "";
+          });
+        item.style.background = "var(--surface-2)";
+        item.style.border = "1px solid var(--primary)";
+        
+        const ticketId = Number(item.dataset.saleId);
+        $("#returnTicketInput").value = ticketId;
+        await loadReturnTicket(ticketId);
+      });
+    });
+}
+
+async function loadReturnTicket(ticketId) {
+  let ticket = ticketId;
+  if (!ticket || typeof ticket !== "number") {
+    ticket = Number($("#returnTicketInput").value || 0);
+  }
   if (!ticket) {
-    showModal("Devoluciones", "Ingresa un número de ticket válido.", [
+    showModal("Devoluciones", "Ingresa o selecciona un número de ticket válido.", [
       { label: "Aceptar", kind: "primary-btn" },
     ]);
     return;
   }
   const response = await apiCall("get_return_ticket", { id_venta: ticket });
   state.selectedReturnTicket = ticket;
+  $("#returnTicketInfo").innerHTML = `Ticket: <strong>#${ticket}</strong>`;
   const rows = response.data || [];
-  $("#returnTable").innerHTML = rows
-    .map(
-      (row) => `
-    <tr data-return-code="${row.codigo}">
-      <td>${row.codigo}</td>
-      <td>${row.nombre}</td>
-      <td>${row.cantidad}</td>
-      <td>${row.cantidad_devuelta}</td>
-      <td>${row.cantidad_restante}</td>
-      <td class="checkbox-cell"><input type="radio" name="returnSelect" value="${row.codigo}" ${row.cantidad_restante <= 0 ? "disabled" : ""} /></td>
-    </tr>
-  `,
-    )
-    .join("");
-  $("#returnTable")
-    .querySelectorAll("tr")
-    .forEach((row) => {
-      row.addEventListener("click", () => {
-        const radio = row.querySelector('input[type="radio"]');
-        if (radio && !radio.disabled) {
-          radio.checked = true;
-          state.selectedReturnRow =
-            rows.find((item) => item.codigo === radio.value) || null;
-        }
-      });
-    });
-}
-
-async function processReturn() {
-  if (!state.selectedReturnTicket || !state.selectedReturnRow) {
-    showModal("Devoluciones", "Selecciona un ticket y un producto.", [
-      { label: "Aceptar", kind: "primary-btn" },
-    ]);
+  if (rows.length === 0) {
+    $("#returnTable").innerHTML = '<tr><td colspan="5" style="text-align: center;">No hay productos en esta venta.</td></tr>';
     return;
   }
-  const quantity = Number($("#returnQty").value || 0);
-  const reason = $("#returnReason").value.trim();
-  const response = await apiCall("process_return", {
-    id_venta: state.selectedReturnTicket,
-    codigo_producto: state.selectedReturnRow.codigo,
-    cantidad: quantity,
-    motivo: reason,
+  renderReturnTable(rows);
+}
+
+function renderReturnTable(rows) {
+  $("#returnTable").innerHTML = rows.map((row) => {
+    const isReturnedAll = row.cantidad_restante <= 0;
+    return `
+      <tr data-return-code="${row.codigo}">
+        <td>
+          <strong>${row.nombre}</strong><br/>
+          <span class="hint">${row.codigo} · ${money(row.precio)}</span>
+        </td>
+        <td>
+          Comprado: ${row.cantidad}<br/>
+          Devuelto: ${row.cantidad_devuelta}
+        </td>
+        <td>
+          <input type="number" class="return-qty-input" data-code="${row.codigo}" min="1" max="${row.cantidad_restante}" value="${row.cantidad_restante}" ${isReturnedAll ? "disabled" : ""} style="width: 70px; padding: 6px; border: 1px solid var(--line); border-radius: 8px;" />
+        </td>
+        <td>
+          <input type="text" class="return-reason-input" data-code="${row.codigo}" placeholder="Motivo" value="Cambio / Talla" ${isReturnedAll ? "disabled" : ""} style="padding: 6px; min-width: 120px; border: 1px solid var(--line); border-radius: 8px;" />
+        </td>
+        <td>
+          <button class="danger-btn return-row-btn" data-code="${row.codigo}" ${isReturnedAll ? "disabled" : ""} style="padding: 6px 12px; font-size: 0.85rem;">
+            Devolver
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  $("#returnTable").querySelectorAll(".return-row-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const code = btn.dataset.code;
+      const qtyInput = $(`#returnTable .return-qty-input[data-code="${code}"]`);
+      const reasonInput = $(`#returnTable .return-reason-input[data-code="${code}"]`);
+      const quantity = Number(qtyInput.value || 0);
+      const reason = reasonInput.value.trim();
+
+      if (quantity <= 0) {
+        showModal("Devoluciones", "Ingresa una cantidad válida mayor a cero.", [
+          { label: "Aceptar", kind: "primary-btn" },
+        ]);
+        return;
+      }
+      if (!reason) {
+        showModal("Devoluciones", "El motivo es obligatorio.", [
+          { label: "Aceptar", kind: "primary-btn" },
+        ]);
+        return;
+      }
+
+      const item = rows.find(r => r.codigo === code);
+      showModal("Confirmar devolución", `¿Deseas devolver ${quantity} unidad(es) de "${item.nombre}"?`, [
+        { label: "Cancelar", kind: "secondary-btn" },
+        {
+          label: "Devolver",
+          kind: "danger-btn",
+          onClick: async () => {
+            const response = await apiCall("process_return", {
+              id_venta: state.selectedReturnTicket,
+              codigo_producto: code,
+              cantidad: quantity,
+              motivo: reason,
+            });
+            showModal("Devolución", response.message, [
+              { label: "Aceptar", kind: "primary-btn" },
+            ]);
+            await refreshProducts();
+            await refreshDashboard();
+            await refreshHistory();
+            await loadReturnTicket(state.selectedReturnTicket);
+            await loadRecentSalesForReturns();
+          }
+        }
+      ]);
+    });
   });
-  showModal("Devolución", response.message, [
-    { label: "Aceptar", kind: "primary-btn" },
-  ]);
-  await refreshProducts();
-  await refreshDashboard();
-  await refreshHistory();
-  await loadReturnTicket();
 }
 
 async function reprintSelectedSale() {
@@ -693,6 +678,15 @@ async function reprintSelectedSale() {
   const response = await apiCall("reprint_sale", {
     id_venta: state.selectedHistorySale,
   });
+  if (response.ok && response.data && response.data.output) {
+    const a = document.createElement("a");
+    a.href = response.data.output + "?t=" + Date.now();
+    a.target = "_blank";
+    a.download = `factura_${state.selectedHistorySale}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
   showModal("Reimpresión", response.message, [
     { label: "Aceptar", kind: "primary-btn" },
   ]);
@@ -981,15 +975,11 @@ async function bindEvents() {
   );
   $("#importCsvBtn").addEventListener("click", guard(importCsvFlow));
   $("#stickersBtn").addEventListener("click", guard(generateStickers));
-  $("#loadReturnTicketBtn").addEventListener("click", guard(loadReturnTicket));
-  $("#processReturnBtn").addEventListener("click", guard(processReturn));
   $("#refreshHistoryBtn").addEventListener("click", guard(refreshHistory));
+  $("#loadReturnTicketBtn").addEventListener("click", guard(loadReturnTicket));
   $("#reprintBtn").addEventListener("click", guard(reprintSelectedSale));
   $("#editSaleBtn").addEventListener("click", guard(editSelectedSale));
   $("#voidSaleBtn").addEventListener("click", guard(deleteSelectedSale));
-
-  $("#userForm").addEventListener("submit", guard(saveUser));
-  $("#clearUserBtn").addEventListener("click", clearUserForm);
 
   $("#modalRoot").addEventListener("click", (event) => {
     if (event.target.id === "modalRoot") {

@@ -190,3 +190,87 @@ class PrinterManager:
 
         c.save()
         return output_filename
+
+    @staticmethod
+    def generate_receipt_pdf(sale_data, products_list, output_filename):
+        """
+        Genera un archivo PDF con formato de ticket de 58mm para impresión térmica.
+        """
+        from pathlib import Path
+        import datetime
+
+        # Asegurar que el directorio de salida existe
+        Path(output_filename).parent.mkdir(parents=True, exist_ok=True)
+
+        LABEL_W = 58 * mm
+        # Altura dinámica: base 70mm + 12mm por producto
+        LABEL_H = (70 + len(products_list) * 12) * mm
+
+        c = canvas.Canvas(output_filename, pagesize=(LABEL_W, LABEL_H))
+        
+        # Margen e inicio en y
+        margin = 3 * mm
+        y = LABEL_H - 8 * mm
+
+        # Header
+        c.setFont("Helvetica-Bold", 10)
+        c.drawCentredString(LABEL_W / 2, y, "TIENDA AIMARA")
+        y -= 4 * mm
+        c.setFont("Helvetica", 7)
+        c.drawCentredString(LABEL_W / 2, y, "POS boutique")
+        
+        y -= 6 * mm
+        c.setFont("Helvetica-Bold", 8)
+        c.drawString(margin, y, f"TICKET #: {sale_data['id_venta']}")
+        
+        # Fecha actual
+        now_str = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
+        c.setFont("Helvetica", 7)
+        c.drawRightString(LABEL_W - margin, y, now_str)
+
+        y -= 3 * mm
+        c.setLineWidth(0.5)
+        c.line(margin, y, LABEL_W - margin, y)
+
+        # Encabezados de tabla
+        y -= 4 * mm
+        c.setFont("Helvetica-Bold", 7)
+        c.drawString(margin, y, "Cant.")
+        c.drawString(margin + 8 * mm, y, "Producto")
+        c.drawRightString(LABEL_W - margin, y, "Subtotal")
+
+        y -= 2 * mm
+        c.line(margin, y, LABEL_W - margin, y)
+
+        # Productos
+        c.setFont("Helvetica", 7)
+        for p in products_list:
+            y -= 4.5 * mm
+            c.drawString(margin, y, str(p["cantidad"]))
+            
+            # Truncar nombre si es muy largo
+            nombre = p["nombre"]
+            if len(nombre) > 18:
+                nombre = nombre[:16] + ".."
+            c.drawString(margin + 8 * mm, y, nombre)
+            
+            subtotal = float(p["subtotal"])
+            c.drawRightString(LABEL_W - margin, y, f"${subtotal:.2f}")
+
+        y -= 3 * mm
+        c.line(margin, y, LABEL_W - margin, y)
+
+        # Total
+        y -= 5 * mm
+        c.setFont("Helvetica-Bold", 8)
+        c.drawString(margin, y, "TOTAL:")
+        c.drawRightString(LABEL_W - margin, y, f"${float(sale_data['total']):.2f}")
+
+        # Mensaje final
+        y -= 8 * mm
+        c.setFont("Helvetica-Oblique", 7)
+        c.drawCentredString(LABEL_W / 2, y, "¡GRACIAS POR SU COMPRA!")
+        
+        c.save()
+        return output_filename
+

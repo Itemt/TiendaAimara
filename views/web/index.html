@@ -32,9 +32,6 @@
                     <button class="menu-item" data-view="history">
                         Historial
                     </button>
-                    <button class="menu-item" data-view="users">
-                        Usuarios
-                    </button>
                 </nav>
                 <div class="sidebar-footer">
                     <button id="logoutBtn" class="ghost-btn">
@@ -142,8 +139,6 @@
                                     >
                                         Agregar
                                     </button>
-                                </div>
-                                <div id="posWarnings" class="warnings"></div>
                                 <div class="table-wrap">
                                     <table class="data-table">
                                         <thead>
@@ -324,55 +319,57 @@
                     </div>
 
                     <div id="returnsView" class="view">
-                        <div class="panel">
-                            <div class="section-head">
-                                <h2>Control de devoluciones</h2>
-                            </div>
-                            <div class="scan-row">
-                                <input
-                                    id="returnTicketInput"
-                                    type="number"
-                                    min="1"
-                                    placeholder="Número de factura / ticket"
-                                />
-                                <button
-                                    id="loadReturnTicketBtn"
-                                    class="secondary-btn"
-                                >
-                                    Buscar ticket
-                                </button>
-                            </div>
-                            <div class="table-wrap">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Código</th>
-                                            <th>Producto</th>
-                                            <th>Comprado</th>
-                                            <th>Devuelto</th>
-                                            <th>Restante</th>
-                                            <th>Seleccionar</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="returnTable"></tbody>
-                                </table>
-                            </div>
-                            <div class="grid-2 return-actions">
-                                <label
-                                    ><span>Cantidad a devolver</span
-                                    ><input
-                                        id="returnQty"
+                        <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 18px;">
+                            <!-- Left: Recent Sales -->
+                            <div class="panel" style="display: flex; flex-direction: column; gap: 14px;">
+                                <h3>Ventas Recientes</h3>
+                                <div style="display: flex; gap: 8px;">
+                                    <input
+                                        id="returnTicketInput"
                                         type="number"
                                         min="1"
-                                /></label>
-                                <label
-                                    ><span>Motivo</span
-                                    ><input id="returnReason" type="text"
-                                /></label>
+                                        placeholder="Buscar ticket #"
+                                        style="padding: 10px;"
+                                    />
+                                    <button
+                                        id="loadReturnTicketBtn"
+                                        class="secondary-btn"
+                                        style="padding: 10px 14px;"
+                                    >
+                                        Buscar
+                                    </button>
+                                </div>
+                                <div id="recentSalesReturnList" class="list-card" style="max-height: 480px; overflow-y: auto; gap: 8px; padding-right: 4px;">
+                                    <!-- Populated by JS -->
+                                </div>
                             </div>
-                            <button id="processReturnBtn" class="primary-btn">
-                                Procesar devolución
-                            </button>
+                            
+                            <!-- Right: Ticket details -->
+                            <div class="panel" style="display: flex; flex-direction: column; gap: 14px;">
+                                <div class="section-head" style="margin-bottom: 0;">
+                                    <h2 id="returnTicketInfo">Devoluciones</h2>
+                                </div>
+                                <div class="table-wrap">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Producto</th>
+                                                <th>Cantidad</th>
+                                                <th style="width: 100px;">A Devolver</th>
+                                                <th>Motivo</th>
+                                                <th>Acción</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="returnTable">
+                                            <tr>
+                                                <td colspan="5" style="text-align: center; color: var(--muted); padding: 40px 0;">
+                                                    Selecciona una venta de la lista o busca un ticket para comenzar.
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -421,86 +418,7 @@
                             </div>
                         </div>
                     </div>
-                    <div id="usersView" class="view">
-                        <div class="panel">
-                            <div class="section-head">
-                                <h2>Gestión de Usuarios</h2>
-                            </div>
-                            <div class="grid-2">
-                                <form id="userForm" class="form-grid">
-                                    <input type="hidden" id="userId" />
-                                    <label
-                                        ><span>Usuario</span
-                                        ><input
-                                            id="userName"
-                                            type="text"
-                                            required
-                                    /></label>
-                                    <label
-                                        ><span>Contraseña</span
-                                        ><input
-                                            id="userPassword"
-                                            type="password"
-                                            placeholder="Solo para nuevos o para cambiar"
-                                    /></label>
-                                    <label>
-                                        <span>Rol</span>
-                                        <select
-                                            id="userRole"
-                                            style="
-                                                width: 100%;
-                                                border: 1px solid var(--line);
-                                                background: rgba(
-                                                    255,
-                                                    255,
-                                                    255,
-                                                    0.82
-                                                );
-                                                border-radius: 16px;
-                                                padding: 13px 14px;
-                                                outline: none;
-                                                font: inherit;
-                                            "
-                                        >
-                                            <option value="cajero">
-                                                Cajero
-                                            </option>
-                                            <option value="admin">
-                                                Administrador
-                                            </option>
-                                        </select>
-                                    </label>
-                                    <div class="form-actions">
-                                        <button
-                                            type="submit"
-                                            class="primary-btn"
-                                        >
-                                            Guardar
-                                        </button>
-                                        <button
-                                            type="button"
-                                            id="clearUserBtn"
-                                            class="secondary-btn"
-                                        >
-                                            Limpiar
-                                        </button>
-                                    </div>
-                                </form>
-                                <div class="table-wrap">
-                                    <table class="data-table">
-                                        <thead>
-                                            <tr>
-                                                <th>Usuario</th>
-                                                <th>Rol</th>
-                                                <th>Acciones</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="usersTable"></tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- Removed usersView -->
                 </section>
             </main>
         </div>

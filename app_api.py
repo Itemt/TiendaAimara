@@ -226,6 +226,11 @@ class AimaraAPI:
         PrinterManager.print_receipt(
             {"id_venta": ticket_id, "total": total}, receipt_products
         )
+        output_dir = self._get_web_output_dir()
+        output_filename = str(output_dir / "receipt.pdf")
+        PrinterManager.generate_receipt_pdf(
+            {"id_venta": ticket_id, "total": total}, receipt_products, output_filename
+        )
         low_stock_hits = [
             product
             for product in ProductModel.list_products()
@@ -234,7 +239,12 @@ class AimaraAPI:
         return self._response(
             True,
             "Venta confirmada.",
-            {"id_venta": ticket_id, "total": total, "low_stock_hits": low_stock_hits},
+            {
+                "id_venta": ticket_id,
+                "total": total,
+                "low_stock_hits": low_stock_hits,
+                "output": "/receipt.pdf",
+            },
         )
 
     def get_sales(self):
@@ -526,8 +536,15 @@ class AimaraAPI:
         PrinterManager.print_receipt(
             {"id_venta": int(id_venta), "total": total}, receipt_products
         )
+        output_dir = self._get_web_output_dir()
+        output_filename = str(output_dir / "receipt.pdf")
+        PrinterManager.generate_receipt_pdf(
+            {"id_venta": int(id_venta), "total": total}, receipt_products, output_filename
+        )
         return self._response(
-            True, f"Factura #{id_venta} reenviada a la impresora térmica."
+            True,
+            f"Factura #{id_venta} generada.",
+            {"id_venta": int(id_venta), "total": total, "output": "/receipt.pdf"},
         )
 
     def get_users(self):
