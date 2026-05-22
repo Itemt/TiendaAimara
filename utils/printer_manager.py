@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import barcode
 from barcode.writer import ImageWriter
