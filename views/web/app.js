@@ -35,6 +35,301 @@ function money(value) {
   return `$${Number(value || 0).toFixed(2)}`;
 }
 
+function printReceiptDirect(saleId, total, items) {
+  const printWindow = window.open('', '_blank', 'width=600,height=600');
+  const itemsHtml = items.map(item => `
+    <tr>
+      <td style="text-align: left;">${item.cantidad}</td>
+      <td style="text-align: left;">${item.nombre.substring(0, 18)}</td>
+      <td style="text-align: right;">$${Number(item.subtotal).toFixed(2)}</td>
+    </tr>
+  `).join('');
+  const dateStr = new Date().toLocaleString('es-ES', { hour12: false });
+  
+  const html = `
+    <html>
+    <head>
+      <title>Ticket #${saleId}</title>
+      <style>
+        @page {
+          size: 58mm auto;
+          margin: 0;
+        }
+        body {
+          width: 58mm;
+          margin: 0;
+          padding: 4mm 4mm 8mm 4mm;
+          font-family: 'Courier New', Courier, monospace;
+          font-size: 11px;
+          color: #000;
+          background: #fff;
+          box-sizing: border-box;
+        }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .bold { font-weight: bold; }
+        .header { margin-bottom: 6px; }
+        .title { font-size: 15px; font-weight: bold; margin: 0; }
+        .subtitle { font-size: 10px; margin: 2px 0 0 0; }
+        .info-table, .items-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 8px 0;
+        }
+        .items-table th, .items-table td {
+          padding: 3px 0;
+          font-size: 10px;
+        }
+        .divider {
+          border-top: 1px dashed #000;
+          margin: 6px 0;
+        }
+        .total-row {
+          font-size: 12px;
+          font-weight: bold;
+          margin-top: 6px;
+        }
+        .footer {
+          margin-top: 15px;
+          font-size: 9px;
+          font-style: italic;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="text-center header">
+        <div class="title">TIENDA AIMARA</div>
+        <div class="subtitle">POS boutique</div>
+      </div>
+      <div class="divider"></div>
+      <table class="info-table">
+        <tr>
+          <td class="bold">TICKET #: ${saleId}</td>
+          <td class="text-right" style="font-size: 9px;">${dateStr}</td>
+        </tr>
+      </table>
+      <div class="divider"></div>
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th style="text-align: left; width: 15%;">Cant</th>
+            <th style="text-align: left; width: 55%;">Producto</th>
+            <th style="text-align: right; width: 30%;">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsHtml}
+        </tbody>
+      </table>
+      <div class="divider"></div>
+      <div class="total-row">
+        <span style="float: left;">TOTAL:</span>
+        <span style="float: right;">$${Number(total).toFixed(2)}</span>
+        <div style="clear: both;"></div>
+      </div>
+      <div class="divider"></div>
+      <div class="text-center footer">
+        ¡GRACIAS POR SU COMPRA!
+      </div>
+      <script>
+        window.onload = function() {
+          window.print();
+          setTimeout(function() { window.close(); }, 500);
+        };
+      </script>
+    </body>
+    </html>
+  `;
+  printWindow.document.write(html);
+  printWindow.document.close();
+}
+
+async function printThermalStickersDirect(products) {
+  showToast("Generando códigos de barra...");
+  const productsWithBarcodes = await Promise.all(products.map(async (p) => {
+    try {
+      const response = await apiCall("get_barcode_base64", { codigo: p.codigo });
+      return { ...p, barcodeSrc: response.data };
+    } catch (e) {
+      return { ...p, barcodeSrc: "" };
+    }
+  }));
+  
+  const printWindow = window.open('', '_blank', 'width=600,height=600');
+  const pagesHtml = productsWithBarcodes.map(p => `
+    <div class="sticker-page">
+      <div class="product-name">${p.nombre.substring(0, 26)}</div>
+      <div class="product-detail">Talla: ${p.talla || ''} &bull; $${Number(p.precio).toFixed(2)}</div>
+      ${p.barcodeSrc ? `<img class="barcode-img" src="${p.barcodeSrc}" />` : `<div style="height: 12mm; border: 1px dashed #ccc; display: grid; place-items: center; font-size: 8px;">[Sin Código]</div>`}
+      <div class="product-code">${p.codigo}</div>
+    </div>
+  `).join('');
+  
+  const html = `
+    <html>
+    <head>
+      <title>Imprimir Stickers Térmicos</title>
+      <style>
+        @page {
+          size: 58mm 32mm;
+          margin: 0;
+        }
+        body {
+          margin: 0;
+          padding: 0;
+          font-family: 'Helvetica', 'Arial', sans-serif;
+          background: #fff;
+          color: #000;
+        }
+        .sticker-page {
+          width: 58mm;
+          height: 32mm;
+          box-sizing: border-box;
+          padding: 2.5mm;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          justify-content: space-between;
+          page-break-after: always;
+        }
+        .sticker-page:last-child {
+          page-break-after: avoid;
+        }
+        .product-name {
+          font-size: 7pt;
+          font-weight: bold;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          width: 100%;
+          line-height: 1;
+        }
+        .product-detail {
+          font-size: 6pt;
+          width: 100%;
+          line-height: 1;
+        }
+        .barcode-img {
+          width: 100%;
+          height: 12mm;
+          display: block;
+        }
+        .product-code {
+          font-size: 5pt;
+          text-align: center;
+          width: 100%;
+          line-height: 1;
+        }
+      </style>
+    </head>
+    <body>
+      ${pagesHtml}
+      <script>
+        window.onload = function() {
+          window.print();
+          setTimeout(function() { window.close(); }, 500);
+        };
+      </script>
+    </body>
+    </html>
+  `;
+  printWindow.document.write(html);
+  printWindow.document.close();
+}
+
+async function printA4StickersDirect(products) {
+  showToast("Generando códigos de barra...");
+  const productsWithBarcodes = await Promise.all(products.map(async (p) => {
+    try {
+      const response = await apiCall("get_barcode_base64", { codigo: p.codigo });
+      return { ...p, barcodeSrc: response.data };
+    } catch (e) {
+      return { ...p, barcodeSrc: "" };
+    }
+  }));
+  
+  const printWindow = window.open('', '_blank', 'width=800,height=800');
+  const stickersHtml = productsWithBarcodes.map(p => `
+    <div class="sticker-card">
+      <div class="product-name">Producto: ${p.nombre}</div>
+      <div class="product-detail">Talla: ${p.talla || ''} | Precio: $${Number(p.precio).toFixed(2)}</div>
+      ${p.barcodeSrc ? `<img class="barcode-img" src="${p.barcodeSrc}" />` : ''}
+      <div class="product-code">Cod: ${p.codigo}</div>
+    </div>
+  `).join('');
+  
+  const html = `
+    <html>
+    <head>
+      <title>Imprimir Stickers A4</title>
+      <style>
+        @page {
+          size: A4;
+          margin: 0;
+        }
+        body {
+          margin: 0;
+          padding: 0;
+          font-family: 'Helvetica', 'Arial', sans-serif;
+          background: #fff;
+          color: #000;
+        }
+        .grid-container {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          grid-auto-rows: calc(297mm / 8);
+          width: 210mm;
+          height: 297mm;
+          box-sizing: border-box;
+          page-break-inside: avoid;
+        }
+        .sticker-card {
+          border: 0.5px solid #ccc;
+          box-sizing: border-box;
+          padding: 10px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          overflow: hidden;
+        }
+        .product-name {
+          font-size: 8pt;
+          font-weight: bold;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .product-detail {
+          font-size: 7pt;
+        }
+        .barcode-img {
+          width: 100%;
+          height: 15mm;
+          display: block;
+          margin: 2px 0;
+        }
+        .product-code {
+          font-size: 7pt;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="grid-container">
+        ${stickersHtml}
+      </div>
+      <script>
+        window.onload = function() {
+          window.print();
+          setTimeout(function() { window.close(); }, 500);
+        };
+      </script>
+    </body>
+    </html>
+  `;
+  printWindow.document.write(html);
+  printWindow.document.close();
+}
+
 function showModal(title, body, actions = []) {
   $("#modalTitle").textContent = title;
   $("#modalBody").innerHTML = body;
@@ -501,20 +796,14 @@ async function previewSale() {
       kind: "primary-btn",
       onClick: async () => {
         const result = await apiCall("create_sale", state.cart);
-        if (result.ok && result.data && result.data.output) {
-          const a = document.createElement("a");
-          a.href = result.data.output + "?t=" + Date.now();
-          a.target = "_blank";
-          a.download = `factura_${result.data.id_venta}.pdf`;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
+        if (result.ok && result.data) {
+          printReceiptDirect(result.data.id_venta, result.data.total, state.cart);
+          showModal(
+            "Venta confirmada",
+            `Ticket #${result.data.id_venta} guardado e impreso.`,
+            [{ label: "Aceptar", kind: "primary-btn" }],
+          );
         }
-        showModal(
-          "Venta confirmada",
-          `Ticket #${result.data.id_venta} guardado e impreso.`,
-          [{ label: "Aceptar", kind: "primary-btn" }],
-        );
         state.cart = [];
         renderCart();
         await refreshProducts();
@@ -675,21 +964,21 @@ async function reprintSelectedSale() {
     ]);
     return;
   }
-  const response = await apiCall("reprint_sale", {
-    id_venta: state.selectedHistorySale,
-  });
-  if (response.ok && response.data && response.data.output) {
-    const a = document.createElement("a");
-    a.href = response.data.output + "?t=" + Date.now();
-    a.target = "_blank";
-    a.download = `factura_${state.selectedHistorySale}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+  try {
+    const detailsResponse = await apiCall("get_sale_details", {
+      id_venta: state.selectedHistorySale,
+    });
+    const items = detailsResponse.data || [];
+    const total = items.reduce((sum, item) => sum + Number(item.subtotal || 0), 0);
+    printReceiptDirect(state.selectedHistorySale, total, items);
+    showModal("Reimpresión", `Factura #${state.selectedHistorySale} enviada a impresión directa.`, [
+      { label: "Aceptar", kind: "primary-btn" },
+    ]);
+  } catch (error) {
+    showModal("Error", "No se pudieron obtener los detalles de la venta.", [
+      { label: "Aceptar", kind: "primary-btn" },
+    ]);
   }
-  showModal("Reimpresión", response.message, [
-    { label: "Aceptar", kind: "primary-btn" },
-  ]);
 }
 
 async function deleteSelectedSale() {
@@ -802,29 +1091,53 @@ async function generateStickers() {
   showModal("Imprimir etiquetas", bodyHtml, [
     { label: "Cancelar", kind: "secondary-btn" },
     {
-      label: "Imprimir en Térmica 58mm",
+      label: "Imp. Directa Térmica 58mm",
+      kind: "primary-btn",
+      close: false,
+      onClick: async () => {
+        const scope = document.querySelector('input[name="printScope"]:checked')?.value || "all";
+        const codes = scope === "selected" ? Array.from(state.selectedForPrint) : null;
+        let productsToPrint = state.products;
+        if (codes) {
+          productsToPrint = state.products.filter(p => codes.includes(p.codigo));
+        }
+        hideModal();
+        await printThermalStickersDirect(productsToPrint);
+      },
+    },
+    {
+      label: "Imp. Directa Normal A4",
+      kind: "primary-btn",
+      close: false,
+      onClick: async () => {
+        const scope = document.querySelector('input[name="printScope"]:checked')?.value || "all";
+        const codes = scope === "selected" ? Array.from(state.selectedForPrint) : null;
+        let productsToPrint = state.products;
+        if (codes) {
+          productsToPrint = state.products.filter(p => codes.includes(p.codigo));
+        }
+        hideModal();
+        await printA4StickersDirect(productsToPrint);
+      },
+    },
+    {
+      label: "Descargar PDF Térmica",
       kind: "secondary-btn",
       close: false,
       onClick: async () => {
-        const scope =
-          document.querySelector('input[name="printScope"]:checked')?.value ||
-          "all";
-        const codes =
-          scope === "selected" ? Array.from(state.selectedForPrint) : null;
+        const scope = document.querySelector('input[name="printScope"]:checked')?.value || "all";
+        const codes = scope === "selected" ? Array.from(state.selectedForPrint) : null;
         hideModal();
         await printStickers("thermal", codes);
       },
     },
     {
-      label: "Imprimir en Normal A4",
-      kind: "primary-btn",
+      label: "Descargar PDF Normal A4",
+      kind: "secondary-btn",
       close: false,
       onClick: async () => {
-        const scope =
-          document.querySelector('input[name="printScope"]:checked')?.value ||
-          "all";
-        const codes =
-          scope === "selected" ? Array.from(state.selectedForPrint) : null;
+        const scope = document.querySelector('input[name="printScope"]:checked')?.value || "all";
+        const codes = scope === "selected" ? Array.from(state.selectedForPrint) : null;
         hideModal();
         await printStickers("a4", codes);
       },
@@ -980,6 +1293,27 @@ async function bindEvents() {
   $("#reprintBtn").addEventListener("click", guard(reprintSelectedSale));
   $("#editSaleBtn").addEventListener("click", guard(editSelectedSale));
   $("#voidSaleBtn").addEventListener("click", guard(deleteSelectedSale));
+
+  $("#refreshDashboardBtn").addEventListener("click", guard(refreshDashboard));
+  $("#refreshPosBtn").addEventListener("click", guard(async () => {
+    state.cart = [];
+    renderCart();
+    await refreshProducts();
+    $("#barcodeInput").value = "";
+    $("#barcodeInput").focus();
+    showToast("Datos de venta actualizados.");
+  }));
+  $("#refreshInventoryBtn").addEventListener("click", guard(async () => {
+    await refreshProducts($("#inventorySearch").value);
+    showToast("Inventario actualizado.");
+  }));
+  $("#refreshReturnsBtn").addEventListener("click", guard(async () => {
+    await loadRecentSalesForReturns();
+    if (state.selectedReturnTicket) {
+      await loadReturnTicket(state.selectedReturnTicket);
+    }
+    showToast("Devoluciones actualizadas.");
+  }));
 
   $("#modalRoot").addEventListener("click", (event) => {
     if (event.target.id === "modalRoot") {

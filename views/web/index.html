@@ -88,6 +88,10 @@
 
                 <section id="appArea" class="app-area hidden">
                     <div id="dashboardView" class="view active">
+                        <div class="section-head">
+                            <h2>Dashboard</h2>
+                            <button id="refreshDashboardBtn" class="secondary-btn">Actualizar</button>
+                        </div>
                         <div class="cards-grid" id="dashboardCards"></div>
                         <div class="panel two-col">
                             <div>
@@ -123,9 +127,12 @@
                             <div>
                                 <div class="section-head">
                                     <h2>Punto de Venta</h2>
-                                    <span id="posStatus" class="status-pill"
-                                        >Listo para escanear</span
-                                    >
+                                    <div class="inline-actions">
+                                        <span id="posStatus" class="status-pill"
+                                            >Listo para escanear</span
+                                        >
+                                        <button id="refreshPosBtn" class="secondary-btn">Actualizar</button>
+                                    </div>
                                 </div>
                                 <div class="scan-row">
                                     <input
@@ -201,6 +208,12 @@
                                         class="primary-btn"
                                     >
                                         Imprimir stickers
+                                    </button>
+                                    <button
+                                        id="refreshInventoryBtn"
+                                        class="secondary-btn"
+                                    >
+                                        Actualizar
                                     </button>
                                 </div>
                             </div>
@@ -349,6 +362,7 @@
                             <div class="panel" style="display: flex; flex-direction: column; gap: 14px;">
                                 <div class="section-head" style="margin-bottom: 0;">
                                     <h2 id="returnTicketInfo">Devoluciones</h2>
+                                    <button id="refreshReturnsBtn" class="secondary-btn">Actualizar</button>
                                 </div>
                                 <div class="table-wrap">
                                     <table class="data-table">

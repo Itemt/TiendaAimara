@@ -81,6 +81,7 @@ class AimaraRequestHandler(BaseHTTPRequestHandler):
                 "save_user",
                 "generate_stickers",
                 "generate_thermal_stickers",
+                "get_barcode_base64",
             }:
                 result = handler(payload)
             elif route in {"list_products"}:

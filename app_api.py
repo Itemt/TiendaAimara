@@ -517,6 +517,35 @@ class AimaraAPI:
             {"output": "/stickers_thermal.pdf"},
         )
 
+    def get_barcode_base64(self, payload):
+        import base64
+        import barcode
+        from barcode.writer import ImageWriter
+        import io
+
+        protected = self._require_login()
+        if protected:
+            return protected
+
+        codigo = str(payload.get("codigo", "") if isinstance(payload, dict) else payload).strip()
+        if not codigo:
+            return self._response(False, "El código es obligatorio.")
+
+        try:
+            code128_cls = barcode.get_barcode_class("code128")
+            hrn = code128_cls(codigo, writer=ImageWriter())
+            fp = io.BytesIO()
+            hrn.write(fp, options={
+                "write_text": False,
+                "module_width": 0.2,
+                "module_height": 5.0,
+                "quiet_zone": 1.0,
+            })
+            base64_data = base64.b64encode(fp.getvalue()).decode("utf-8")
+            return self._response(True, data=f"data:image/png;base64,{base64_data}")
+        except Exception as e:
+            return self._response(False, str(e))
+
     def reprint_sale(self, id_venta):
         protected = self._require_login()
         if protected:
