@@ -245,6 +245,7 @@ async function printThermalStickersDirect(products) {
         }
         body {
           width: 58mm;
+          min-height: 60mm; /* Fuerza la orientación vertical/portrait en Chrome para tiras cortas */
           margin: 0;
           padding: 2mm 2mm 6mm 2mm;
           font-family: Arial, Helvetica, sans-serif;

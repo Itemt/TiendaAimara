@@ -125,7 +125,8 @@ class PrinterManager:
         LABEL_W = 58 * mm
         ITEM_H = 30 * mm
         # Altura dinámica: total de ítems * altura de cada uno + margen final
-        LABEL_H = len(products_list) * ITEM_H + 4 * mm
+        # Garantizamos que sea al menos de 60mm para forzar orientación vertical (portrait)
+        LABEL_H = max(60 * mm, len(products_list) * ITEM_H + 4 * mm)
         SIDE = 2.5 * mm
 
         c = canvas.Canvas(output_filename, pagesize=(LABEL_W, LABEL_H))
