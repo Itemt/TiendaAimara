@@ -121,7 +121,7 @@ else:
         upx=False,              # UPX off: evita falsos positivos en antivirus
         upx_exclude=[],
         runtime_tmpdir=None,
-        console=True,           # Muestra ventana con la URL del servidor
+        console=False,          # Sin ventana de consola en Windows
         disable_windowed_traceback=False,
         argv_emulation=False,
         target_arch=None,
