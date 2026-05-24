@@ -46,7 +46,10 @@ class ProductModel:
             elif text.isdigit():
                 highest = max(highest, int(text))
 
-        return f"{prefix}{highest + 1:06d}"
+        if highest < 1000:
+            highest = 1000
+
+        return f"{prefix}{highest + 1}"
 
     @staticmethod
     def get_product_by_code(codigo):

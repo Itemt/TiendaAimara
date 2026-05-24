@@ -1363,11 +1363,18 @@ async function bindEvents() {
     showToast("Inventario actualizado.");
   }));
   $("#refreshReturnsBtn").addEventListener("click", guard(async () => {
+    state.selectedReturnTicket = null;
+    $("#returnTicketInput").value = "";
+    $("#returnTicketInfo").innerHTML = "Devoluciones";
+    $("#returnTable").innerHTML = `
+      <tr>
+        <td colspan="5" style="text-align: center; color: var(--muted); padding: 40px 0;">
+          Selecciona una venta de la lista o busca un ticket para comenzar.
+        </td>
+      </tr>
+    `;
     await loadRecentSalesForReturns();
-    if (state.selectedReturnTicket) {
-      await loadReturnTicket(state.selectedReturnTicket);
-    }
-    showToast("Devoluciones actualizadas.");
+    showToast("Módulo de devoluciones restablecido.");
   }));
 
   $("#modalRoot").addEventListener("click", (event) => {
