@@ -25,8 +25,12 @@ class InventoryController:
             
     def on_save(self):
         data = self.view.get_form_data()
-        if not data["codigo"] or not data["nombre"] or not data["precio"] or not data["stock"]:
-            show_error("Error", "Faltan campos obligatorios (Código, Nombre, Precio, Stock).")
+        codigo = data["codigo"].strip()
+        if not codigo:
+            codigo = ProductModel.next_product_code()
+            
+        if not data["nombre"] or not data["precio"] or not data["stock"]:
+            show_error("Error", "Faltan campos obligatorios (Nombre, Precio, Stock).")
             return
             
         try:
@@ -37,7 +41,7 @@ class InventoryController:
             return
 
         success, msg = ProductModel.add_product(
-            data["codigo"], data["nombre"], data["categoria"], 
+            codigo, data["nombre"], data["categoria"], 
             data["talla"], precio, stock
         )
         if success:
@@ -117,8 +121,7 @@ class InventoryController:
                         codigo, nombre, cat, talla, prec, stock = row[0:6]
                         # auto-generar secuencial si código está vacío
                         if not codigo.strip():
-                            codigo = f"AUT{int(time.time()*1000)}"
-                            time.sleep(0.001)
+                            codigo = ProductModel.next_product_code()
                         try:
                             sc, _ = ProductModel.add_product(codigo, nombre, cat, talla, float(prec), int(stock))
                             if sc: added += 1

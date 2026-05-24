@@ -56,10 +56,15 @@ class ReturnsController:
             success, msg = ReturnModel.process_return(self.current_id_venta, codigo_producto, cant, motivo)
             if success:
                 show_success("Devolución Exitosa", msg)
-                self.view.entry_cant.delete(0, 'end')
-                self.view.entry_motivo.delete(0, 'end')
-                # Recargar para que el usuario pueda seguir viendo - opcionalmente restar la cant de la vista
+                self.on_reset()
             else:
                 show_error("Error en Devolución", msg)
 
         ConfirmModal("Confirmar Devolución", f"¿Devolver {cant} de {selected[2]}?\nSe reingresará el stock al inventario.", confirmar)
+
+    def on_reset(self):
+        self.current_id_venta = None
+        self.view.entry_search.delete(0, 'end')
+        self.view.entry_cant.delete(0, 'end')
+        self.view.entry_motivo.delete(0, 'end')
+        self.view.populate_details([])

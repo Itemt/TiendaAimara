@@ -26,6 +26,9 @@ class ReturnsView(ctk.CTkFrame):
         self.btn_search = ctk.CTkButton(self.search_frame, text="Buscar Detalles", command=self.controller.on_search, fg_color="#FF69B4")
         self.btn_search.pack(side="left", padx=10)
         
+        self.btn_refresh = ctk.CTkButton(self.search_frame, text="Actualizar", command=self.controller.on_reset, fg_color="#FF69B4")
+        self.btn_refresh.pack(side="left", padx=10)
+        
         # Tabla de Detalles (id_detalle, codigo, nombre, cantidad, subtotal)
         self.details_tree = ttk.Treeview(self, columns=("ID Detalle", "Codigo", "Producto", "Cantidad Comprada", "Subtotal"), show="headings")
         self.details_tree.heading("ID Detalle", text="ID Detalle")
@@ -57,8 +60,11 @@ class ReturnsView(ctk.CTkFrame):
             self.details_tree.delete(item)
             
         for row in details_list:
-            # (id_detalle, codigo_producto, nombre, cantidad, subtotal)
-            self.details_tree.insert("", "end", values=row)
+            # row: (id_detalle, codigo_producto, nombre, categoria, talla, precio, cantidad, subtotal, cantidad_devuelta)
+            # We want Treeview columns: ("ID Detalle", "Codigo", "Producto", "Cantidad Comprada", "Subtotal")
+            # For "Cantidad Comprada", we show remaining quantity: row[6] - row[8]
+            remaining_qty = max(int(row[6]) - int(row[8]), 0)
+            self.details_tree.insert("", "end", values=(row[0], row[1], row[2], remaining_qty, row[7]))
 
     def get_selected_item(self):
         selected = self.details_tree.selection()

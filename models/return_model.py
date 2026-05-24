@@ -10,17 +10,17 @@ class ReturnModel:
             """
             SELECT dv.id_detalle,
                    dv.codigo_producto,
-                   p.nombre,
-                   p.categoria,
-                   p.talla,
-                   p.precio,
+                   COALESCE(p.nombre, 'Producto sin stock/registro (' || dv.codigo_producto || ')') AS nombre,
+                   COALESCE(p.categoria, '') AS categoria,
+                   COALESCE(p.talla, '') AS talla,
+                   COALESCE(p.precio, (dv.subtotal / dv.cantidad)) AS precio,
                    dv.cantidad,
                    dv.subtotal,
                    COALESCE((SELECT SUM(d.cantidad) FROM devoluciones d WHERE d.id_venta = dv.id_venta AND d.codigo_producto = dv.codigo_producto), 0) AS cantidad_devuelta
             FROM detalles_venta dv
-            JOIN productos p ON dv.codigo_producto = p.codigo
+            LEFT JOIN productos p ON dv.codigo_producto = p.codigo
             WHERE dv.id_venta = ?
-            ORDER BY p.nombre ASC
+            ORDER BY nombre ASC
         """,
             (id_venta,),
         )

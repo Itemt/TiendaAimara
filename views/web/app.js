@@ -1030,7 +1030,16 @@ function renderReturnTable(rows) {
             await refreshProducts();
             await refreshDashboard();
             await refreshHistory();
-            await loadReturnTicket(state.selectedReturnTicket);
+            state.selectedReturnTicket = null;
+            $("#returnTicketInput").value = "";
+            $("#returnTicketInfo").innerHTML = "Devoluciones";
+            $("#returnTable").innerHTML = `
+              <tr>
+                <td colspan="5" style="text-align: center; color: var(--muted); padding: 40px 0;">
+                  Selecciona una venta de la lista o busca un ticket para comenzar.
+                </td>
+              </tr>
+            `;
             await loadRecentSalesForReturns();
           }
         }

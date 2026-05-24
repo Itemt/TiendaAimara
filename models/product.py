@@ -49,7 +49,11 @@ class ProductModel:
         if highest < 1000:
             highest = 1000
 
-        return f"{prefix}{highest + 1}"
+        candidate = highest + 1
+        while f"{prefix}{candidate}" in codes:
+            candidate += 1
+
+        return f"{prefix}{candidate}"
 
     @staticmethod
     def get_product_by_code(codigo):

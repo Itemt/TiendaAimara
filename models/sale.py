@@ -64,11 +64,18 @@ class SaleModel:
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT p.codigo, p.nombre, p.categoria, p.talla, p.precio, p.stock, dv.cantidad, dv.subtotal
+            SELECT dv.codigo_producto AS codigo, 
+                   COALESCE(p.nombre, 'Producto sin stock/registro (' || dv.codigo_producto || ')') AS nombre, 
+                   COALESCE(p.categoria, '') AS categoria, 
+                   COALESCE(p.talla, '') AS talla, 
+                   COALESCE(p.precio, (dv.subtotal / dv.cantidad)) AS precio, 
+                   COALESCE(p.stock, 0) AS stock, 
+                   dv.cantidad, 
+                   dv.subtotal
             FROM detalles_venta dv
-            JOIN productos p ON p.codigo = dv.codigo_producto
+            LEFT JOIN productos p ON p.codigo = dv.codigo_producto
             WHERE dv.id_venta = ?
-            ORDER BY p.nombre ASC
+            ORDER BY nombre ASC
             """,
             (id_venta,),
         )
@@ -125,9 +132,8 @@ class SaleModel:
         cursor.execute(
             """
             SELECT v.id_venta, v.fecha, v.total,
-                   COALESCE((SELECT SUM(dv.cantidad * p.precio)
+                   COALESCE((SELECT SUM(d.cantidad * (dv.subtotal / dv.cantidad))
                              FROM devoluciones d
-                             JOIN productos p ON p.codigo = d.codigo_producto
                              JOIN detalles_venta dv ON dv.id_venta = d.id_venta AND dv.codigo_producto = d.codigo_producto
                              WHERE d.id_venta = v.id_venta), 0) AS devoluciones_total
             FROM ventas v
@@ -148,15 +154,15 @@ class SaleModel:
                    v.fecha,
                    v.total,
                    COALESCE((
-                       SELECT SUM(d.cantidad * p.precio)
+                       SELECT SUM(d.cantidad * (dv.subtotal / dv.cantidad))
                        FROM devoluciones d
-                       JOIN productos p ON p.codigo = d.codigo_producto
+                       JOIN detalles_venta dv ON dv.id_venta = d.id_venta AND dv.codigo_producto = d.codigo_producto
                        WHERE d.id_venta = v.id_venta
                    ), 0) AS total_devuelto,
                    v.total - COALESCE((
-                       SELECT SUM(d.cantidad * p.precio)
+                       SELECT SUM(d.cantidad * (dv.subtotal / dv.cantidad))
                        FROM devoluciones d
-                       JOIN productos p ON p.codigo = d.codigo_producto
+                       JOIN detalles_venta dv ON dv.id_venta = d.id_venta AND dv.codigo_producto = d.codigo_producto
                        WHERE d.id_venta = v.id_venta
                    ), 0) AS total_neto
             FROM ventas v
