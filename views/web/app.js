@@ -37,14 +37,22 @@ function money(value) {
 
 function printReceiptDirect(saleId, total, items) {
   const printWindow = window.open('', '_blank', 'width=600,height=600');
+  const formatMoney = (value) => {
+    return '$' + Math.round(Number(value || 0)).toLocaleString('en-US');
+  };
   const itemsHtml = items.map(item => `
-    <tr>
-      <td style="text-align: left;">${item.cantidad}</td>
-      <td style="text-align: left;">${item.nombre.substring(0, 18)}</td>
-      <td style="text-align: right;">$${Number(item.subtotal).toFixed(2)}</td>
-    </tr>
+    <div class="item-row">
+      <div class="item-name">${item.nombre.toUpperCase()}</div>
+      <div class="item-details">
+        <span class="item-qty-price">${item.cantidad} x ${formatMoney(item.precio)}</span>
+        <span class="item-subtotal">${formatMoney(item.subtotal)}</span>
+      </div>
+    </div>
   `).join('');
-  const dateStr = new Date().toLocaleString('es-ES', { hour12: false });
+  
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const timeStr = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
   
   const html = `
     <html>
@@ -59,78 +67,139 @@ function printReceiptDirect(saleId, total, items) {
           width: 58mm;
           margin: 0;
           padding: 4mm 4mm 8mm 4mm;
-          font-family: 'Courier New', Courier, monospace;
+          font-family: Arial, Helvetica, sans-serif;
           font-size: 11px;
+          font-weight: bold;
           color: #000;
           background: #fff;
           box-sizing: border-box;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
         }
         .text-center { text-align: center; }
         .text-right { text-align: right; }
         .bold { font-weight: bold; }
-        .header { margin-bottom: 6px; }
-        .title { font-size: 15px; font-weight: bold; margin: 0; }
-        .subtitle { font-size: 10px; margin: 2px 0 0 0; }
-        .info-table, .items-table {
-          width: 100%;
-          border-collapse: collapse;
+        .header {
+          margin-bottom: 8px;
+          line-height: 1.3;
+        }
+        .title {
+          font-size: 18px;
+          font-weight: 900;
+          margin: 0 0 4px 0;
+          letter-spacing: 0.5px;
+        }
+        .subtitle-info {
+          font-size: 9.5px;
+          font-weight: bold;
+          margin: 2px 0;
+        }
+        .separator {
+          border-top: 1.8px solid #000;
           margin: 8px 0;
         }
-        .items-table th, .items-table td {
-          padding: 3px 0;
-          font-size: 10px;
-        }
-        .divider {
-          border-top: 1px dashed #000;
+        .info-section {
+          font-size: 10.5px;
+          line-height: 1.45;
           margin: 6px 0;
         }
-        .total-row {
-          font-size: 12px;
+        .info-title {
           font-weight: bold;
-          margin-top: 6px;
+          font-size: 11.5px;
         }
-        .footer {
-          margin-top: 15px;
-          font-size: 9px;
+        .items-section {
+          margin: 8px 0;
+        }
+        .item-row {
+          margin-bottom: 8px;
+          page-break-inside: avoid;
+        }
+        .item-name {
+          font-size: 11px;
+          font-weight: bold;
+          text-transform: uppercase;
+          margin-bottom: 2px;
+        }
+        .item-details {
+          display: flex;
+          justify-content: space-between;
+          font-size: 10.5px;
+        }
+        .item-qty-price {
           font-style: italic;
+          font-weight: bold;
+        }
+        .item-subtotal {
+          font-weight: bold;
+        }
+        .total-container {
+          margin-top: 10px;
+          page-break-inside: avoid;
+        }
+        .total-line {
+          float: right;
+          width: 45%;
+          border-top: 1.5px solid #000;
+          margin-bottom: 4px;
+        }
+        .total-row {
+          font-size: 13.5px;
+          font-weight: bold;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .policies-section {
+          margin-top: 20px;
+          font-size: 9.5px;
+          line-height: 1.4;
+          text-align: center;
+          page-break-inside: avoid;
+        }
+        .policies-title {
+          font-weight: bold;
+          font-size: 10.5px;
+          margin-bottom: 4px;
         }
       </style>
     </head>
     <body>
       <div class="text-center header">
-        <div class="title">TIENDA AIMARA</div>
-        <div class="subtitle">POS boutique</div>
+        <div class="title">AIMARA MODA</div>
+        <div class="subtitle-info">NIT: 1065.890.123-1</div>
+        <div class="subtitle-info">Calle 50 #1 -7 Barrancabermeja</div>
+        <div class="subtitle-info">WhatsApp: +57 311 837 1495</div>
       </div>
-      <div class="divider"></div>
-      <table class="info-table">
-        <tr>
-          <td class="bold">TICKET #: ${saleId}</td>
-          <td class="text-right" style="font-size: 9px;">${dateStr}</td>
-        </tr>
-      </table>
-      <div class="divider"></div>
-      <table class="items-table">
-        <thead>
-          <tr>
-            <th style="text-align: left; width: 15%;">Cant</th>
-            <th style="text-align: left; width: 55%;">Producto</th>
-            <th style="text-align: right; width: 30%;">Subtotal</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${itemsHtml}
-        </tbody>
-      </table>
-      <div class="divider"></div>
-      <div class="total-row">
-        <span style="float: left;">TOTAL:</span>
-        <span style="float: right;">$${Number(total).toFixed(2)}</span>
+      
+      <div class="separator"></div>
+      
+      <div class="info-section">
+        <div class="info-title">TICKET #: ${saleId}</div>
+        <div>FECHA: ${dateStr} &nbsp; HORA: ${timeStr}</div>
+      </div>
+      
+      <div class="separator"></div>
+      
+      <div class="items-section">
+        ${itemsHtml}
+      </div>
+      
+      <div class="total-container">
+        <div class="total-line"></div>
         <div style="clear: both;"></div>
+        <div class="total-row">
+          <span>TOTAL:</span>
+          <span>${formatMoney(total)}</span>
+        </div>
       </div>
-      <div class="divider"></div>
-      <div class="text-center footer">
-        ¡GRACIAS POR SU COMPRA!
+      
+      <div class="policies-section">
+        <div class="policies-title">POLÍTICAS DE CAMBIO</div>
+        <div>Conserve este ticket para cambios.</div>
+        <div>Plazo: 15 días. Etiquetas originales.</div>
+        <div>IG: @Aimara_ModaFashion09</div>
       </div>
+      
       <script>
         window.onload = function() {
           window.print();
@@ -156,11 +225,11 @@ async function printThermalStickersDirect(products) {
   }));
   
   const printWindow = window.open('', '_blank', 'width=600,height=600');
-  const pagesHtml = productsWithBarcodes.map(p => `
-    <div class="sticker-page">
+  const itemsHtml = productsWithBarcodes.map(p => `
+    <div class="sticker-item">
       <div class="product-name">${p.nombre.substring(0, 26)}</div>
       <div class="product-detail">Talla: ${p.talla || ''} &bull; $${Number(p.precio).toFixed(2)}</div>
-      ${p.barcodeSrc ? `<img class="barcode-img" src="${p.barcodeSrc}" />` : `<div style="height: 12mm; border: 1px dashed #ccc; display: grid; place-items: center; font-size: 8px;">[Sin Código]</div>`}
+      ${p.barcodeSrc ? `<img class="barcode-img" src="${p.barcodeSrc}" />` : `<div style="height: 12mm; border: 1px dashed #ccc; display: grid; place-items: center; font-size: 8px; font-weight: bold;">[Sin Código]</div>`}
       <div class="product-code">${p.codigo}</div>
     </div>
   `).join('');
@@ -168,62 +237,72 @@ async function printThermalStickersDirect(products) {
   const html = `
     <html>
     <head>
-      <title>Imprimir Stickers Térmicos</title>
+      <title>Imprimir Stickers Facturera</title>
       <style>
         @page {
-          size: 58mm 32mm;
+          size: 58mm auto;
           margin: 0;
         }
         body {
+          width: 58mm;
           margin: 0;
-          padding: 0;
-          font-family: 'Helvetica', 'Arial', sans-serif;
+          padding: 2mm 2mm 6mm 2mm;
+          font-family: Arial, Helvetica, sans-serif;
           background: #fff;
           color: #000;
-        }
-        .sticker-page {
-          width: 58mm;
-          height: 32mm;
           box-sizing: border-box;
-          padding: 2.5mm;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .sticker-item {
+          width: 100%;
+          height: 30mm;
+          box-sizing: border-box;
+          padding: 2mm 0;
           display: flex;
           flex-direction: column;
-          align-items: flex-start;
+          align-items: center;
           justify-content: space-between;
-          page-break-after: always;
+          border-bottom: 1.5px dashed #000;
+          page-break-inside: avoid;
         }
-        .sticker-page:last-child {
-          page-break-after: avoid;
+        .sticker-item:last-child {
+          border-bottom: none;
         }
         .product-name {
-          font-size: 7pt;
+          font-size: 7.5pt;
           font-weight: bold;
+          text-align: center;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
           width: 100%;
-          line-height: 1;
+          line-height: 1.2;
         }
         .product-detail {
-          font-size: 6pt;
-          width: 100%;
-          line-height: 1;
-        }
-        .barcode-img {
-          width: 100%;
-          height: 12mm;
-          display: block;
-        }
-        .product-code {
-          font-size: 5pt;
+          font-size: 6.5pt;
+          font-weight: bold;
           text-align: center;
           width: 100%;
-          line-height: 1;
+          line-height: 1.2;
+        }
+        .barcode-img {
+          width: 90%;
+          height: 12mm;
+          display: block;
+          margin: 2px auto;
+        }
+        .product-code {
+          font-size: 6pt;
+          font-weight: bold;
+          text-align: center;
+          width: 100%;
+          line-height: 1.2;
         }
       </style>
     </head>
     <body>
-      ${pagesHtml}
+      ${itemsHtml}
       <script>
         window.onload = function() {
           window.print();
@@ -1091,7 +1170,7 @@ async function generateStickers() {
   showModal("Imprimir etiquetas", bodyHtml, [
     { label: "Cancelar", kind: "secondary-btn" },
     {
-      label: "Imp. Directa Térmica 58mm",
+      label: "Imp. Directa Facturera (Tira 58mm)",
       kind: "primary-btn",
       close: false,
       onClick: async () => {
@@ -1121,7 +1200,7 @@ async function generateStickers() {
       },
     },
     {
-      label: "Descargar PDF Térmica",
+      label: "Descargar PDF Stickers (58x32mm)",
       kind: "secondary-btn",
       close: false,
       onClick: async () => {

@@ -146,12 +146,12 @@ class PrinterManager:
             y = LABEL_H - SIDE
 
             # Nombre (negrita)
-            c.setFont("Helvetica-Bold", 7)
+            c.setFont("Helvetica-Bold", 7.5)
             y -= 8
             c.drawString(SIDE, y, nombre)
 
-            # Talla / Precio
-            c.setFont("Helvetica", 6)
+            # Talla / Precio (negrita)
+            c.setFont("Helvetica-Bold", 6.5)
             detail = f"Talla: {talla}  \u2022  ${precio:.2f}"
             y -= 7
             c.drawString(SIDE, y, detail)
@@ -177,15 +177,15 @@ class PrinterManager:
                 bc_y = y - bc_h - 1.5 * mm
                 c.drawImage(bc_file, SIDE, bc_y, width=bc_w, height=bc_h)
 
-                # Código en texto bajo el barcode
-                c.setFont("Helvetica", 5)
+                # Código en texto bajo el barcode (negrita)
+                c.setFont("Helvetica-Bold", 6)
                 c.drawCentredString(LABEL_W / 2, bc_y - 5, codigo)
 
                 if os.path.exists(bc_file):
                     os.remove(bc_file)
 
             except Exception:
-                c.setFont("Helvetica", 6)
+                c.setFont("Helvetica-Bold", 6.5)
                 y -= 10
                 c.drawCentredString(LABEL_W / 2, y, f"[{codigo}]")
 
@@ -214,28 +214,28 @@ class PrinterManager:
         y = LABEL_H - 8 * mm
 
         # Header
-        c.setFont("Helvetica-Bold", 10)
+        c.setFont("Helvetica-Bold", 11)
         c.drawCentredString(LABEL_W / 2, y, "TIENDA AIMARA")
         y -= 4 * mm
-        c.setFont("Helvetica", 7)
+        c.setFont("Helvetica-Bold", 8)
         c.drawCentredString(LABEL_W / 2, y, "POS boutique")
         
         y -= 6 * mm
-        c.setFont("Helvetica-Bold", 8)
+        c.setFont("Helvetica-Bold", 8.5)
         c.drawString(margin, y, f"TICKET #: {sale_data['id_venta']}")
         
-        # Fecha actual
+        # Fecha actual (negrita)
         now_str = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
-        c.setFont("Helvetica", 7)
+        c.setFont("Helvetica-Bold", 7.5)
         c.drawRightString(LABEL_W - margin, y, now_str)
 
         y -= 3 * mm
         c.setLineWidth(0.5)
         c.line(margin, y, LABEL_W - margin, y)
 
-        # Encabezados de tabla
+        # Encabezados de tabla (negrita)
         y -= 4 * mm
-        c.setFont("Helvetica-Bold", 7)
+        c.setFont("Helvetica-Bold", 8)
         c.drawString(margin, y, "Cant.")
         c.drawString(margin + 8 * mm, y, "Producto")
         c.drawRightString(LABEL_W - margin, y, "Subtotal")
@@ -243,8 +243,8 @@ class PrinterManager:
         y -= 2 * mm
         c.line(margin, y, LABEL_W - margin, y)
 
-        # Productos
-        c.setFont("Helvetica", 7)
+        # Productos (todos en negrita para mejor visibilidad térmica)
+        c.setFont("Helvetica-Bold", 8)
         for p in products_list:
             y -= 4.5 * mm
             c.drawString(margin, y, str(p["cantidad"]))
@@ -261,15 +261,15 @@ class PrinterManager:
         y -= 3 * mm
         c.line(margin, y, LABEL_W - margin, y)
 
-        # Total
+        # Total (negrita)
         y -= 5 * mm
-        c.setFont("Helvetica-Bold", 8)
+        c.setFont("Helvetica-Bold", 9)
         c.drawString(margin, y, "TOTAL:")
         c.drawRightString(LABEL_W - margin, y, f"${float(sale_data['total']):.2f}")
 
-        # Mensaje final
+        # Mensaje final (negrita)
         y -= 8 * mm
-        c.setFont("Helvetica-Oblique", 7)
+        c.setFont("Helvetica-Bold", 8)
         c.drawCentredString(LABEL_W / 2, y, "¡GRACIAS POR SU COMPRA!")
         
         c.save()
