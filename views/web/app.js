@@ -1163,14 +1163,13 @@ async function generateStickers() {
           Solo los seleccionados (${selectedCount})
         </label>
       </div>
-      <div style="font-weight:700;">Selecciona la impresora</div>
     </div>
   `;
 
-  showModal("Imprimir etiquetas", bodyHtml, [
+  showModal("Imprimir etiquetas (58mm)", bodyHtml, [
     { label: "Cancelar", kind: "secondary-btn" },
     {
-      label: "Imp. Directa Facturera (Tira 58mm)",
+      label: "Imprimir Directo (58mm)",
       kind: "primary-btn",
       close: false,
       onClick: async () => {
@@ -1185,40 +1184,14 @@ async function generateStickers() {
       },
     },
     {
-      label: "Imp. Directa Normal A4",
+      label: "Descargar PDF (58mm)",
       kind: "primary-btn",
-      close: false,
-      onClick: async () => {
-        const scope = document.querySelector('input[name="printScope"]:checked')?.value || "all";
-        const codes = scope === "selected" ? Array.from(state.selectedForPrint) : null;
-        let productsToPrint = state.products;
-        if (codes) {
-          productsToPrint = state.products.filter(p => codes.includes(p.codigo));
-        }
-        hideModal();
-        await printA4StickersDirect(productsToPrint);
-      },
-    },
-    {
-      label: "Descargar PDF Stickers (58x32mm)",
-      kind: "secondary-btn",
       close: false,
       onClick: async () => {
         const scope = document.querySelector('input[name="printScope"]:checked')?.value || "all";
         const codes = scope === "selected" ? Array.from(state.selectedForPrint) : null;
         hideModal();
         await printStickers("thermal", codes);
-      },
-    },
-    {
-      label: "Descargar PDF Normal A4",
-      kind: "secondary-btn",
-      close: false,
-      onClick: async () => {
-        const scope = document.querySelector('input[name="printScope"]:checked')?.value || "all";
-        const codes = scope === "selected" ? Array.from(state.selectedForPrint) : null;
-        hideModal();
-        await printStickers("a4", codes);
       },
     },
   ]);

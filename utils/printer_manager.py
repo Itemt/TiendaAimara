@@ -120,20 +120,19 @@ class PrinterManager:
         products_list, output_filename="stickers_thermal.pdf"
     ):
         """
-        Genera PDF de etiquetas para impresora térmica de 58mm.
-        Cada producto ocupa una página propia (58 x 32 mm).
+        Genera PDF de etiquetas para impresora térmica de 58mm en una tira continua.
         """
         LABEL_W = 58 * mm
-        LABEL_H = 32 * mm
+        ITEM_H = 30 * mm
+        # Altura dinámica: total de ítems * altura de cada uno + margen final
+        LABEL_H = len(products_list) * ITEM_H + 4 * mm
         SIDE = 2.5 * mm
 
         c = canvas.Canvas(output_filename, pagesize=(LABEL_W, LABEL_H))
 
-        for idx, p in enumerate(products_list):
-            if idx > 0:
-                c.showPage()
-                c.setPageSize((LABEL_W, LABEL_H))
+        y = LABEL_H - 2 * mm
 
+        for idx, p in enumerate(products_list):
             codigo = str(p.get("codigo", ""))
             nombre = str(p.get("nombre", ""))
             talla = str(p.get("talla") or "").strip()
@@ -143,17 +142,17 @@ class PrinterManager:
             if len(nombre) > 26:
                 nombre = nombre[:25] + "\u2026"
 
-            y = LABEL_H - SIDE
+            item_top_y = y
 
             # Nombre (negrita)
             c.setFont("Helvetica-Bold", 7.5)
-            y -= 8
+            y -= 6 * mm
             c.drawString(SIDE, y, nombre)
 
             # Talla / Precio (negrita)
             c.setFont("Helvetica-Bold", 6.5)
             detail = f"Talla: {talla}  \u2022  ${precio:.2f}"
-            y -= 7
+            y -= 4.5 * mm
             c.drawString(SIDE, y, detail)
 
             # Código de barras Code128
@@ -172,22 +171,35 @@ class PrinterManager:
                     },
                 )
 
-                bc_h = 12 * mm
+                bc_h = 11 * mm
                 bc_w = LABEL_W - 2 * SIDE
                 bc_y = y - bc_h - 1.5 * mm
                 c.drawImage(bc_file, SIDE, bc_y, width=bc_w, height=bc_h)
 
                 # Código en texto bajo el barcode (negrita)
                 c.setFont("Helvetica-Bold", 6)
-                c.drawCentredString(LABEL_W / 2, bc_y - 5, codigo)
+                c.drawCentredString(LABEL_W / 2, bc_y - 4.5 * mm, codigo)
 
                 if os.path.exists(bc_file):
                     os.remove(bc_file)
 
             except Exception:
                 c.setFont("Helvetica-Bold", 6.5)
-                y -= 10
+                y -= 8 * mm
                 c.drawCentredString(LABEL_W / 2, y, f"[{codigo}]")
+
+            # Mover y al final del item
+            y = item_top_y - ITEM_H
+
+            # Dibujar línea punteada separadora si no es el último elemento
+            if idx < len(products_list) - 1:
+                c.setLineWidth(0.5)
+                c.setStrokeColorRGB(0, 0, 0)
+                # Patrón de guiones (1.5mm encendido, 1.5mm apagado)
+                c.setDash(1.5 * mm, 1.5 * mm)
+                c.line(SIDE, y, LABEL_W - SIDE, y)
+                # Quitar el dash para los demás dibujos
+                c.setDash()
 
         c.save()
         return output_filename

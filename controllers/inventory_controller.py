@@ -146,8 +146,8 @@ class InventoryController:
             
         def proc_print():
             try:
-                PrinterManager.generate_stickers_pdf(visualizadas)
-                show_success("Éxito", "PDF de autoadhesivos generado ('stickers_a4.pdf').")
+                PrinterManager.generate_thermal_stickers_pdf(visualizadas)
+                show_success("Éxito", "PDF de autoadhesivos generado ('stickers_thermal.pdf').")
             except Exception as e:
                 show_error("Error", f"Error al generar PDF: {e}")
                 
