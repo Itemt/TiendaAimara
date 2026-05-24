@@ -39,10 +39,14 @@ class ProductModel:
                 suffix = text.split("-", 1)[1]
                 if suffix.isdigit():
                     highest = max(highest, int(suffix))
+            elif text.startswith(prefix):
+                suffix = text[len(prefix):]
+                if suffix.isdigit():
+                    highest = max(highest, int(suffix))
             elif text.isdigit():
                 highest = max(highest, int(text))
 
-        return f"{prefix}-{highest + 1:06d}"
+        return f"{prefix}{highest + 1:06d}"
 
     @staticmethod
     def get_product_by_code(codigo):

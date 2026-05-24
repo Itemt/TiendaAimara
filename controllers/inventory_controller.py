@@ -117,7 +117,7 @@ class InventoryController:
                         codigo, nombre, cat, talla, prec, stock = row[0:6]
                         # auto-generar secuencial si código está vacío
                         if not codigo.strip():
-                            codigo = f"AUT-{int(time.time()*1000)}"
+                            codigo = f"AUT{int(time.time()*1000)}"
                             time.sleep(0.001)
                         try:
                             sc, _ = ProductModel.add_product(codigo, nombre, cat, talla, float(prec), int(stock))

@@ -559,7 +559,8 @@ function renderCart() {
 }
 
 async function refreshProducts(search = "") {
-  const response = await apiCall("list_products", { search_text: search });
+  const sanitizedSearch = typeof search === 'string' ? search.replace(/`/g, '-') : search;
+  const response = await apiCall("list_products", { search_text: sanitizedSearch });
   state.products = response.data || [];
   $("#inventoryTable").innerHTML = state.products.map(productToRow).join("");
   $("#inventoryTable")
@@ -696,7 +697,8 @@ function updateSelectAllState() {
 
 
 async function addToCartByCode(code) {
-  const response = await apiCall("get_product", code);
+  const sanitized = code.trim().replace(/`/g, '-');
+  const response = await apiCall("get_product", sanitized);
   const product = response.data;
   const existing = state.cart.find((item) => item.codigo === product.codigo);
   if (existing) {
@@ -1290,7 +1292,7 @@ async function bindEvents() {
     guard(async (event) => {
       if (event.key === "Enter") {
         event.preventDefault();
-        const code = $("#barcodeInput").value.trim();
+        const code = $("#barcodeInput").value.trim().replace(/`/g, '-');
         if (code) {
           await addToCartByCode(code);
         }
@@ -1302,7 +1304,7 @@ async function bindEvents() {
   $("#addBarcodeBtn").addEventListener(
     "click",
     guard(async () => {
-      const code = $("#barcodeInput").value.trim();
+      const code = $("#barcodeInput").value.trim().replace(/`/g, '-');
       if (code) {
         await addToCartByCode(code);
       }
