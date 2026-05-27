@@ -242,6 +242,11 @@ class PrinterManager:
         c.setFont("Helvetica-Bold", 7.5)
         c.drawRightString(LABEL_W - margin, y, now_str)
 
+        y -= 3.5 * mm
+        metodo = sale_data.get('metodo_pago', 'Efectivo') or 'Efectivo'
+        c.setFont("Helvetica-Bold", 7.5)
+        c.drawString(margin, y, f"Pago: {metodo}")
+
         y -= 3 * mm
         c.setLineWidth(0.5)
         c.line(margin, y, LABEL_W - margin, y)

@@ -45,9 +45,11 @@ def init_db():
     CREATE TABLE IF NOT EXISTS ventas (
         id_venta INTEGER PRIMARY KEY AUTOINCREMENT,
         fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
-        total REAL NOT NULL
+        total REAL NOT NULL,
+        metodo_pago TEXT NOT NULL DEFAULT 'Efectivo'
     )
     """)
+
 
     # Tabla Detalles de Venta
     cursor.execute("""
@@ -92,6 +94,12 @@ def init_db():
         FOREIGN KEY(codigo_producto) REFERENCES productos(codigo)
     )
     """)
+
+    # Migración: agregar metodo_pago si no existe (para BD ya creadas)
+    try:
+        cursor.execute("ALTER TABLE ventas ADD COLUMN metodo_pago TEXT NOT NULL DEFAULT 'Efectivo'")
+    except Exception:
+        pass  # La columna ya existe, ignorar
 
     conn.commit()
     conn.close()

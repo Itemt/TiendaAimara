@@ -362,7 +362,12 @@
                             <div class="panel" style="display: flex; flex-direction: column; gap: 14px;">
                                 <div class="section-head" style="margin-bottom: 0;">
                                     <h2 id="returnTicketInfo">Devoluciones</h2>
-                                    <button id="refreshReturnsBtn" class="secondary-btn">Actualizar</button>
+                                    <div class="inline-actions">
+                                        <button id="updateInvoiceBtn" class="primary-btn" style="display:none;">
+                                            🔄 Actualizar Factura
+                                        </button>
+                                        <button id="refreshReturnsBtn" class="secondary-btn">Actualizar</button>
+                                    </div>
                                 </div>
                                 <div class="table-wrap">
                                     <table class="data-table">
@@ -426,6 +431,7 @@
                                             <th>Total bruto</th>
                                             <th>Devuelto</th>
                                             <th>Neto</th>
+                                            <th>Método</th>
                                         </tr>
                                     </thead>
                                     <tbody id="historyTable"></tbody>

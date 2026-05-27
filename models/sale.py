@@ -19,9 +19,10 @@ class SaleModel:
         ]
 
     @staticmethod
-    def create_sale(cart_items, total):
+    def create_sale(cart_items, total, metodo_pago="Efectivo"):
         """
         cart_items: list of dicts {"codigo", "cantidad", "subtotal"}
+        metodo_pago: 'Efectivo' | 'Dataphone' | 'Transferencia'
         Returns id_venta if success
         """
         conn = get_connection()
@@ -29,7 +30,10 @@ class SaleModel:
 
         try:
             # 1. Insertar Venta
-            cursor.execute("INSERT INTO ventas (total) VALUES (?)", (total,))
+            cursor.execute(
+                "INSERT INTO ventas (total, metodo_pago) VALUES (?, ?)",
+                (total, metodo_pago),
+            )
             id_venta = cursor.lastrowid
 
             # 2. Insertar Detalles y Descontar Stock
@@ -135,7 +139,8 @@ class SaleModel:
                    COALESCE((SELECT SUM(d.cantidad * (dv.subtotal / dv.cantidad))
                              FROM devoluciones d
                              JOIN detalles_venta dv ON dv.id_venta = d.id_venta AND dv.codigo_producto = d.codigo_producto
-                             WHERE d.id_venta = v.id_venta), 0) AS devoluciones_total
+                             WHERE d.id_venta = v.id_venta), 0) AS devoluciones_total,
+                   COALESCE(v.metodo_pago, 'Efectivo') AS metodo_pago
             FROM ventas v
             ORDER BY v.fecha DESC
             """
@@ -164,7 +169,8 @@ class SaleModel:
                        FROM devoluciones d
                        JOIN detalles_venta dv ON dv.id_venta = d.id_venta AND dv.codigo_producto = d.codigo_producto
                        WHERE d.id_venta = v.id_venta
-                   ), 0) AS total_neto
+                   ), 0) AS total_neto,
+                   COALESCE(v.metodo_pago, 'Efectivo') AS metodo_pago
             FROM ventas v
             ORDER BY v.fecha DESC
             """
@@ -178,6 +184,7 @@ class SaleModel:
                 "total": row[2],
                 "total_devuelto": row[3],
                 "total_neto": row[4],
+                "metodo_pago": row[5],
             }
             for row in rows
         ]

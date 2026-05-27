@@ -183,8 +183,15 @@ class AimaraAPI:
         protected = self._require_login()
         if protected:
             return protected
+
+        metodo_pago = "Efectivo"
         if isinstance(cart_items, dict):
+            metodo_pago = str(cart_items.get("metodo_pago", "Efectivo")).strip() or "Efectivo"
             cart_items = cart_items.get("cart_items", [])
+
+        METODOS_VALIDOS = {"Efectivo", "Datáfono", "Transferencia"}
+        if metodo_pago not in METODOS_VALIDOS:
+            metodo_pago = "Efectivo"
 
         prepared = []
         for item in cart_items:
@@ -208,7 +215,7 @@ class AimaraAPI:
             )
 
         total = sum(item["subtotal"] for item in prepared)
-        success, result = SaleModel.create_sale(prepared, total)
+        success, result = SaleModel.create_sale(prepared, total, metodo_pago)
         if not success:
             return self._response(False, result)
 
@@ -224,12 +231,12 @@ class AimaraAPI:
                 }
             )
         PrinterManager.print_receipt(
-            {"id_venta": ticket_id, "total": total}, receipt_products
+            {"id_venta": ticket_id, "total": total, "metodo_pago": metodo_pago}, receipt_products
         )
         output_dir = self._get_web_output_dir()
         output_filename = str(output_dir / "receipt.pdf")
         PrinterManager.generate_receipt_pdf(
-            {"id_venta": ticket_id, "total": total}, receipt_products, output_filename
+            {"id_venta": ticket_id, "total": total, "metodo_pago": metodo_pago}, receipt_products, output_filename
         )
         low_stock_hits = [
             product
@@ -242,6 +249,7 @@ class AimaraAPI:
             {
                 "id_venta": ticket_id,
                 "total": total,
+                "metodo_pago": metodo_pago,
                 "low_stock_hits": low_stock_hits,
                 "output": "/receipt.pdf",
             },
@@ -545,6 +553,77 @@ class AimaraAPI:
             return self._response(True, data=f"data:image/png;base64,{base64_data}")
         except Exception as e:
             return self._response(False, str(e))
+
+    def update_sale_item(self, payload):
+        """
+        Reemplaza un producto en una venta existente por otro:
+        - Devuelve el viejo al stock
+        - Descuenta el nuevo del stock
+        - Actualiza detalles_venta
+        - Recalcula el total de la venta
+        - Regenera el PDF de la factura actualizada
+        """
+        protected = self._require_login()
+        if protected:
+            return protected
+
+        if isinstance(payload, dict):
+            id_venta = int(payload.get("id_venta", 0))
+            old_codigo = str(payload.get("old_codigo", "")).strip()
+            new_codigo = str(payload.get("new_codigo", "")).strip()
+            motivo = str(payload.get("motivo", "Cambio de producto")).strip()
+        else:
+            return self._response(False, "Payload inválido.")
+
+        if not id_venta or not old_codigo or not new_codigo:
+            return self._response(False, "id_venta, old_codigo y new_codigo son obligatorios.")
+
+        if old_codigo == new_codigo:
+            return self._response(False, "El producto nuevo debe ser diferente al actual.")
+
+        success, message, new_total = ReturnModel.update_sale_item(
+            id_venta, old_codigo, new_codigo, motivo
+        )
+        if not success:
+            return self._response(False, message)
+
+        # Regenerar el PDF de factura con los datos actualizados
+        try:
+            details = SaleModel.get_sale_details(id_venta)
+            receipt_products = [
+                {
+                    "nombre": item["nombre"],
+                    "cantidad": item["cantidad"],
+                    "subtotal": item["subtotal"],
+                }
+                for item in details
+            ]
+            output_dir = self._get_web_output_dir()
+            output_filename = str(output_dir / "receipt.pdf")
+            PrinterManager.generate_receipt_pdf(
+                {"id_venta": id_venta, "total": new_total}, receipt_products, output_filename
+            )
+        except Exception:
+            pass  # No bloquear si falla la regeneración del PDF
+
+        return self._response(
+            True,
+            message,
+            {
+                "id_venta": id_venta,
+                "new_total": new_total,
+                "output": "/receipt.pdf",
+                "receipt_items": [
+                    {
+                        "nombre": item["nombre"],
+                        "cantidad": item["cantidad"],
+                        "precio": item["precio"],
+                        "subtotal": item["subtotal"],
+                    }
+                    for item in SaleModel.get_sale_details(id_venta)
+                ],
+            },
+        )
 
     def reprint_sale(self, id_venta):
         protected = self._require_login()

@@ -35,11 +35,14 @@ function money(value) {
   return `$${Number(value || 0).toFixed(2)}`;
 }
 
-function printReceiptDirect(saleId, total, items) {
+function printReceiptDirect(saleId, total, items, metodoPago) {
   const printWindow = window.open('', '_blank', 'width=600,height=600');
   const formatMoney = (value) => {
     return '$' + Math.round(Number(value || 0)).toLocaleString('en-US');
   };
+  metodoPago = metodoPago || 'Efectivo';
+  const metodoPagoIconos = { 'Efectivo': '💵', 'Datáfono': '💳', 'Transferencia': '📲' };
+  const metodoPagoIcon = metodoPagoIconos[metodoPago] || '';
   const itemsHtml = items.map(item => `
     <div class="item-row">
       <div class="item-name">${item.nombre.toUpperCase()}</div>
@@ -176,6 +179,7 @@ function printReceiptDirect(saleId, total, items) {
       <div class="info-section">
         <div class="info-title">TICKET #: ${saleId}</div>
         <div>FECHA: ${dateStr} &nbsp; HORA: ${timeStr}</div>
+        <div style="margin-top:3px; font-size: 10px;">PAGO: ${metodoPagoIcon} ${metodoPago.toUpperCase()}</div>
       </div>
       
       <div class="separator"></div>
@@ -617,6 +621,7 @@ async function refreshDashboard() {
 async function refreshHistory() {
   const response = await apiCall("get_sales", {});
   const sales = response.data || [];
+  const metodoPagoIconos = { 'Efectivo': '💵', 'Datáfono': '💳', 'Transferencia': '📲' };
   $("#historyTable").innerHTML = sales
     .map(
       (sale) => `
@@ -626,6 +631,7 @@ async function refreshHistory() {
       <td>${money(sale.total)}</td>
       <td>${money(sale.total_devuelto)}</td>
       <td>${money(sale.total_neto)}</td>
+      <td><span style="font-size:0.85rem; white-space:nowrap;">${metodoPagoIconos[sale.metodo_pago] || ''} ${sale.metodo_pago || 'Efectivo'}</span></td>
     </tr>
   `,
     )
@@ -870,6 +876,35 @@ async function previewSale() {
   const body = `
     <div class="list-card">${items.map((item) => `<div class="list-item"><strong>${item.nombre}</strong><br/>${item.cantidad} x ${money(item.precio)} = ${money(item.subtotal)}</div>`).join("")}</div>
     <h3 style="margin-top:16px;">Total: ${money(total)}</h3>
+    <div style="margin-top: 18px;">
+      <div style="font-weight: 700; margin-bottom: 10px; font-size: 0.9rem;">Método de pago:</div>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;" id="paymentMethodGroup">
+        <label style="flex: 1; min-width: 100px;">
+          <input type="radio" name="metodoPago" value="Efectivo" checked style="display:none;" />
+          <div class="payment-chip" data-method="Efectivo" onclick="selectPaymentChip(this)" style="
+            padding: 10px 16px; border: 2px solid var(--primary); border-radius: 12px;
+            text-align: center; cursor: pointer; font-weight: 700; font-size: 0.9rem;
+            background: var(--primary); color: #fff; transition: all 0.15s;
+          ">💵 Efectivo</div>
+        </label>
+        <label style="flex: 1; min-width: 100px;">
+          <input type="radio" name="metodoPago" value="Datáfono" style="display:none;" />
+          <div class="payment-chip" data-method="Datáfono" onclick="selectPaymentChip(this)" style="
+            padding: 10px 16px; border: 2px solid var(--line); border-radius: 12px;
+            text-align: center; cursor: pointer; font-weight: 700; font-size: 0.9rem;
+            background: transparent; color: var(--text); transition: all 0.15s;
+          ">💳 Datáfono</div>
+        </label>
+        <label style="flex: 1; min-width: 100px;">
+          <input type="radio" name="metodoPago" value="Transferencia" style="display:none;" />
+          <div class="payment-chip" data-method="Transferencia" onclick="selectPaymentChip(this)" style="
+            padding: 10px 16px; border: 2px solid var(--line); border-radius: 12px;
+            text-align: center; cursor: pointer; font-weight: 700; font-size: 0.9rem;
+            background: transparent; color: var(--text); transition: all 0.15s;
+          ">📲 Transferencia</div>
+        </label>
+      </div>
+    </div>
   `;
   showModal("Vista previa de facturación", body, [
     { label: "Volver a editar", kind: "secondary-btn" },
@@ -877,12 +912,17 @@ async function previewSale() {
       label: "Confirmar e imprimir",
       kind: "primary-btn",
       onClick: async () => {
-        const result = await apiCall("create_sale", state.cart);
+        const metodoPago = document.querySelector('input[name="metodoPago"]:checked')?.value || "Efectivo";
+        const result = await apiCall("create_sale", {
+          cart_items: state.cart,
+          metodo_pago: metodoPago,
+        });
         if (result.ok && result.data) {
-          printReceiptDirect(result.data.id_venta, result.data.total, state.cart);
+          const itemsForPrint = state.cart.map(i => ({ ...i, precio: i.precio }));
+          printReceiptDirect(result.data.id_venta, result.data.total, itemsForPrint, metodoPago);
           showModal(
             "Venta confirmada",
-            `Ticket #${result.data.id_venta} guardado e impreso.`,
+            `Ticket #${result.data.id_venta} guardado e impreso.\nMétodo: ${metodoPago}`,
             [{ label: "Aceptar", kind: "primary-btn" }],
           );
         }
@@ -894,6 +934,23 @@ async function previewSale() {
       },
     },
   ]);
+}
+
+function selectPaymentChip(el) {
+  // Deselect all chips
+  document.querySelectorAll('.payment-chip').forEach(chip => {
+    chip.style.background = 'transparent';
+    chip.style.color = 'var(--text)';
+    chip.style.borderColor = 'var(--line)';
+  });
+  // Select clicked
+  el.style.background = 'var(--primary)';
+  el.style.color = '#fff';
+  el.style.borderColor = 'var(--primary)';
+  // Mark the radio
+  const method = el.dataset.method;
+  const radio = document.querySelector(`input[name="metodoPago"][value="${method}"]`);
+  if (radio) radio.checked = true;
 }
 
 async function loadRecentSalesForReturns() {
@@ -954,6 +1011,9 @@ async function loadReturnTicket(ticketId) {
   const response = await apiCall("get_return_ticket", { id_venta: ticket });
   state.selectedReturnTicket = ticket;
   $("#returnTicketInfo").innerHTML = `Ticket: <strong>#${ticket}</strong>`;
+  // Mostrar botón Actualizar Factura
+  const updateBtn = $("#updateInvoiceBtn");
+  if (updateBtn) updateBtn.style.display = "inline-flex";
   const rows = response.data || [];
   if (rows.length === 0) {
     $("#returnTable").innerHTML = '<tr><td colspan="5" style="text-align: center;">No hay productos en esta venta.</td></tr>';
@@ -1046,6 +1106,199 @@ function renderReturnTable(rows) {
       ]);
     });
   });
+}
+
+async function openUpdateInvoiceModal() {
+  if (!state.selectedReturnTicket) {
+    showModal("Actualizar Factura", "Primero selecciona o busca un ticket.", [
+      { label: "Aceptar", kind: "primary-btn" },
+    ]);
+    return;
+  }
+
+  // Cargar productos actuales de la venta
+  const ticketId = state.selectedReturnTicket;
+  const response = await apiCall("get_return_ticket", { id_venta: ticketId });
+  const rows = response.data || [];
+
+  if (rows.length === 0) {
+    showModal("Actualizar Factura", "No hay productos en esta venta.", [
+      { label: "Aceptar", kind: "primary-btn" },
+    ]);
+    return;
+  }
+
+  const productOptions = rows
+    .map(
+      (row) => `
+      <label style="
+        display: flex; align-items: center; gap: 12px;
+        padding: 10px 14px;
+        border: 1.5px solid var(--line);
+        border-radius: 10px;
+        cursor: pointer;
+        margin-bottom: 8px;
+        transition: border-color 0.2s, background 0.2s;
+      " onmouseover="this.style.borderColor='var(--primary)'" onmouseout="if(!this.querySelector('input').checked)this.style.borderColor='var(--line)'">
+        <input type="radio" name="swapProduct" value="${row.codigo}" style="accent-color: var(--primary);" />
+        <div>
+          <div style="font-weight: 700; font-size: 0.95rem;">${row.nombre}</div>
+          <div style="font-size: 0.8rem; color: var(--muted);">${row.codigo} · ${money(row.precio)} · ${row.cantidad} unid.</div>
+        </div>
+      </label>
+    `
+    )
+    .join("");
+
+  const modalBody = `
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      <div>
+        <div style="font-weight: 700; margin-bottom: 10px; font-size: 0.95rem;">1. Selecciona el producto a cambiar:</div>
+        <div id="swapProductList" style="max-height: 240px; overflow-y: auto; padding-right: 4px;">
+          ${productOptions}
+        </div>
+      </div>
+      <div>
+        <div style="font-weight: 700; margin-bottom: 8px; font-size: 0.95rem;">2. Código del nuevo producto (escanear o escribir):</div>
+        <input
+          id="newProductCode"
+          type="text"
+          placeholder="Escanear o ingresar código del nuevo producto"
+          style="width: 100%; padding: 10px 14px; border: 1.5px solid var(--line); border-radius: 10px; font-size: 1rem; background: var(--surface); color: var(--text); box-sizing: border-box;"
+          autofocus
+        />
+      </div>
+      <div>
+        <div style="font-weight: 700; margin-bottom: 8px; font-size: 0.95rem;">3. Motivo del cambio:</div>
+        <input
+          id="swapMotivo"
+          type="text"
+          value="Cambio / Talla"
+          placeholder="Ej: Cambio de talla, defecto, etc."
+          style="width: 100%; padding: 10px 14px; border: 1.5px solid var(--line); border-radius: 10px; font-size: 1rem; background: var(--surface); color: var(--text); box-sizing: border-box;"
+        />
+      </div>
+    </div>
+  `;
+
+  showModal(
+    `🔄 Actualizar Factura #${ticketId}`,
+    modalBody,
+    [
+      { label: "Cancelar", kind: "secondary-btn" },
+      {
+        label: "Confirmar cambio e imprimir",
+        kind: "primary-btn",
+        close: false,
+        onClick: async () => {
+          const selectedRadio = document.querySelector('input[name="swapProduct"]:checked');
+          if (!selectedRadio) {
+            showModal("Actualizar Factura", "Debes seleccionar el producto que deseas cambiar.", [
+              { label: "Aceptar", kind: "primary-btn" },
+            ]);
+            return;
+          }
+          const oldCodigo = selectedRadio.value;
+          const newCodigo = $("#newProductCode").value.trim().replace(/`/g, "-");
+          const motivo = $("#swapMotivo").value.trim() || "Cambio de producto";
+
+          if (!newCodigo) {
+            showModal("Actualizar Factura", "Debes ingresar el código del nuevo producto.", [
+              { label: "Aceptar", kind: "primary-btn" },
+            ]);
+            return;
+          }
+          if (oldCodigo === newCodigo) {
+            showModal("Actualizar Factura", "El nuevo producto debe ser diferente al actual.", [
+              { label: "Aceptar", kind: "primary-btn" },
+            ]);
+            return;
+          }
+
+          // Buscar nombre del producto viejo para mostrar en confirmación
+          const oldRow = rows.find((r) => r.codigo === oldCodigo);
+          const oldNombre = oldRow ? oldRow.nombre : oldCodigo;
+
+          // Verificar que el nuevo producto existe
+          let newProduct = null;
+          try {
+            const prodResp = await apiCall("get_product", newCodigo);
+            newProduct = prodResp.data;
+          } catch (err) {
+            showModal("Actualizar Factura", `Producto nuevo no encontrado: ${err.message}`, [
+              { label: "Aceptar", kind: "primary-btn" },
+            ]);
+            return;
+          }
+
+          hideModal();
+
+          showModal(
+            "Confirmar cambio",
+            `
+              <div style="line-height: 1.7; font-size: 0.95rem;">
+                <div><strong>Ticket:</strong> #${ticketId}</div>
+                <div style="margin-top: 10px;"><strong>❌ Sale del stock:</strong></div>
+                <div style="padding: 8px 14px; background: var(--surface-2); border-radius: 8px; margin: 4px 0;">${oldNombre} <span style="color:var(--muted)">(${oldCodigo})</span></div>
+                <div style="margin-top: 10px;"><strong>✅ Entra al ticket:</strong></div>
+                <div style="padding: 8px 14px; background: var(--surface-2); border-radius: 8px; margin: 4px 0;">${newProduct.nombre} <span style="color:var(--muted)">(${newCodigo})</span> · ${money(newProduct.precio)}</div>
+                <div style="margin-top: 10px; color: var(--muted); font-size: 0.87rem;">Motivo: ${motivo}</div>
+              </div>
+            `,
+            [
+              {
+                label: "Cancelar",
+                kind: "secondary-btn",
+                onClick: () => openUpdateInvoiceModal(),
+              },
+              {
+                label: "✅ Confirmar y reimprimir",
+                kind: "primary-btn",
+                onClick: async () => {
+                  const result = await apiCall("update_sale_item", {
+                    id_venta: ticketId,
+                    old_codigo: oldCodigo,
+                    new_codigo: newCodigo,
+                    motivo: motivo,
+                  });
+
+                  // Imprimir la factura actualizada directamente
+                  const updatedItems = result.data.receipt_items || [];
+                  const newTotal = result.data.new_total || 0;
+                  printReceiptDirect(ticketId, newTotal, updatedItems);
+
+                  showModal(
+                    "✅ Factura Actualizada",
+                    `
+                      <div style="text-align: center; padding: 10px 0;">
+                        <div style="font-size: 2rem; margin-bottom: 8px;">🧾</div>
+                        <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 6px;">${result.message}</div>
+                        <div style="color: var(--muted); font-size: 0.9rem;">Ticket #${ticketId} · Nuevo total: ${money(newTotal)}</div>
+                        <div style="margin-top: 12px; font-size: 0.85rem; color: var(--muted);">La factura actualizada fue enviada a impresión.</div>
+                      </div>
+                    `,
+                    [
+                      {
+                        label: "Aceptar",
+                        kind: "primary-btn",
+                        onClick: async () => {
+                          await refreshProducts();
+                          await refreshDashboard();
+                          await refreshHistory();
+                          // Recargar el ticket para ver el estado actualizado
+                          await loadReturnTicket(ticketId);
+                        },
+                      },
+                    ]
+                  );
+                },
+              },
+            ]
+          );
+        },
+      },
+    ]
+  );
 }
 
 async function reprintSelectedSale() {
@@ -1375,6 +1628,9 @@ async function bindEvents() {
     state.selectedReturnTicket = null;
     $("#returnTicketInput").value = "";
     $("#returnTicketInfo").innerHTML = "Devoluciones";
+    // Ocultar botón Actualizar Factura
+    const updateBtn = $("#updateInvoiceBtn");
+    if (updateBtn) updateBtn.style.display = "none";
     $("#returnTable").innerHTML = `
       <tr>
         <td colspan="5" style="text-align: center; color: var(--muted); padding: 40px 0;">
@@ -1385,6 +1641,8 @@ async function bindEvents() {
     await loadRecentSalesForReturns();
     showToast("Módulo de devoluciones restablecido.");
   }));
+
+  $("#updateInvoiceBtn").addEventListener("click", guard(openUpdateInvoiceModal));
 
   $("#modalRoot").addEventListener("click", (event) => {
     if (event.target.id === "modalRoot") {
