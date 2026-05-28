@@ -3,6 +3,8 @@
 Sistema de Punto de Venta para **Tienda Aimara** — boutique de moda.  
 Construido con Python + interfaz web local (HTML/CSS/JS) servida por un servidor HTTP embebido.
 
+> **Versión actual: v1.7.0**
+
 ---
 
 ## ✨ Características principales
@@ -67,6 +69,18 @@ Requiere Python 3.9+ y PyInstaller instalado. El ejecutable queda en `dist/Aimar
 ---
 
 ## 📋 Historial de versiones
+
+### v1.7.0 — 2026-05-27
+- ✅ **Factura formato DIAN** — rediseño completo del ticket de 58mm:
+  - Encabezado con NIT, dirección, tipo de contribuyente, régimen fiscal R-99-PN, tipo de operación
+  - Tabla de ítems estilo POS DIAN: `# | Descripción | C/N | V/Uni | Total`
+  - Sección **CANCELO / CAMBIO** en totales
+  - Sección **FORMA DE PAGO / MEDIO DE PAGO / ✓ ESTADO ACEPTADA**
+  - Pie con **CAJERO / VENDEDOR** (usuario logueado)
+- ✅ **Método de pago corregido** — bug donde siempre guardaba "Efectivo" sin importar la selección (el DOM se limpiaba antes de leer el radio; ahora se persiste en `state`)
+- ✅ **Campo "¿Cuánto cancela?"** en modal de cobro con cálculo de cambio en tiempo real (solo visible para Efectivo)
+- ✅ **Importación CSV mejorada** — detecta separador `,` o `;` automáticamente, maneja BOM UTF-8, elimina comillas, acepta `.txt`
+- ✅ **Edición de productos con stock 0** — corregido envío de `"0"` como string válido
 
 ### v1.6.0 — 2026-05-27
 - ✅ **Métodos de pago** — selector visual (chips) en modal de cobro: Efectivo, Datáfono, Transferencia
