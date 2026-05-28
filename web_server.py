@@ -115,6 +115,7 @@ class AimaraRequestHandler(BaseHTTPRequestHandler):
                 "next_product_code",
                 "logout",
                 "get_users",
+                "reset_database",
             }:
                 result = handler()
             else:

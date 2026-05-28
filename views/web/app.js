@@ -449,6 +449,16 @@ function productToRow(product) {
 
 function renderDashboard() {
   if (!state.dashboard) return;
+
+  const adminPanel = $("#adminPanel");
+  if (adminPanel) {
+    if (state.user && state.user.rol === "admin") {
+      adminPanel.style.display = "block";
+    } else {
+      adminPanel.style.display = "none";
+    }
+  }
+
   const stats = state.dashboard.stats;
   const cards = [
     ["Ventas", stats.sales_count, "Tickets emitidos"],
@@ -576,6 +586,9 @@ async function refreshProducts(search = "") {
 async function refreshDashboard() {
   const response = await apiCall("get_dashboard", {});
   state.dashboard = response.data;
+  if (state.dashboard && state.dashboard.user) {
+    state.user = state.dashboard.user;
+  }
   renderDashboard();
 }
 
@@ -1535,6 +1548,84 @@ async function printStickers(type, codes) {
   }
 }
 
+async function resetDatabaseFlow() {
+  showModal(
+    "⚠️ Borrar base de datos",
+    `<div style="line-height: 1.6; color: var(--text);">
+       ¿Estás absolutamente seguro de que deseas restablecer la base de datos?
+       <br/><br/>
+       <strong>Esta acción eliminará de forma permanente:</strong>
+       <ul style="margin: 10px 0; padding-left: 20px;">
+         <li>Todos los productos registrados</li>
+         <li>Todos los tickets de ventas</li>
+         <li>Todo el historial de devoluciones y caja</li>
+       </ul>
+       Esta acción <strong>NO se puede deshacer</strong>.
+     </div>`,
+    [
+      { label: "Cancelar", kind: "secondary-btn" },
+      {
+        label: "⚠️ Sí, continuar",
+        kind: "danger-btn",
+        close: false,
+        onClick: () => {
+          showModal(
+            "🔴 Confirmación final requerida",
+            `<div style="line-height: 1.6; color: var(--text);">
+               Para confirmar, escribe la palabra <strong style="color: #e53e3e; font-size: 1.1rem;">BORRAR</strong> a continuación:
+               <br/><br/>
+               <input
+                 id="confirmResetInput"
+                 type="text"
+                 placeholder="Escribe BORRAR aquí"
+                 style="width: 100%; padding: 10px 14px; border: 1.5px solid var(--line); border-radius: 10px; font-size: 1rem; background: var(--surface); color: var(--text); box-sizing: border-box;"
+                 autofocus
+               />
+             </div>`,
+            [
+              { label: "Cancelar", kind: "secondary-btn" },
+              {
+                label: "🗑️ Borrar base de datos",
+                kind: "danger-btn",
+                close: false,
+                onClick: async () => {
+                  const val = $("#confirmResetInput").value;
+                  if (val !== "BORRAR") {
+                    showModal("Error de confirmación", "Debes escribir exactamente 'BORRAR' para proceder.", [
+                      { label: "Volver a intentar", kind: "primary-btn", onClick: () => resetDatabaseFlow() }
+                    ]);
+                    return;
+                  }
+                  hideModal();
+                  showToast("Restableciendo base de datos...");
+                  try {
+                    const response = await apiCall("reset_database", {});
+                    showModal("✅ Éxito", response.message || "Base de datos restablecida correctamente.", [
+                      {
+                        label: "Aceptar",
+                        kind: "primary-btn",
+                        onClick: async () => {
+                          await refreshProducts();
+                          await refreshDashboard();
+                          await refreshHistory();
+                        }
+                      }
+                    ]);
+                  } catch (err) {
+                    showModal("Error", err.message || "Error al restablecer la base de datos.", [
+                      { label: "Aceptar", kind: "primary-btn" }
+                    ]);
+                  }
+                }
+              }
+            ]
+          );
+        }
+      }
+    ]
+  );
+}
+
 // Envuelve handlers async: muestra modal de error si lanzan una excepción
 function guard(fn) {
   return async (...args) => {
@@ -1630,6 +1721,7 @@ async function bindEvents() {
   $("#voidSaleBtn").addEventListener("click", guard(deleteSelectedSale));
 
   $("#refreshDashboardBtn").addEventListener("click", guard(refreshDashboard));
+  $("#resetDbBtn").addEventListener("click", guard(resetDatabaseFlow));
   $("#refreshPosBtn").addEventListener("click", guard(async () => {
     state.cart = [];
     renderCart();

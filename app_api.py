@@ -697,6 +697,32 @@ class AimaraAPI:
             return self._response(False, "Acceso denegado. Solo administradores.")
         return self._wrap_pair(UserModel.delete_user(int(user_id)))
 
+    def reset_database(self):
+        protected = self._require_login()
+        if protected:
+            return protected
+        if self.user["rol"] != "admin":
+            return self._response(False, "Acceso denegado. Solo administradores.")
+        try:
+            from models.database import get_connection
+            conn = get_connection()
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA foreign_keys = OFF")
+            cursor.execute("DELETE FROM devoluciones")
+            cursor.execute("DELETE FROM detalles_venta")
+            cursor.execute("DELETE FROM ventas")
+            cursor.execute("DELETE FROM productos")
+            cursor.execute(
+                "DELETE FROM sqlite_sequence WHERE name IN ('ventas', 'detalles_venta', 'devoluciones', 'productos')"
+            )
+            cursor.execute("PRAGMA foreign_keys = ON")
+            conn.commit()
+            conn.close()
+            return self._response(True, "La base de datos se ha vaciado con éxito.")
+        except Exception as e:
+            return self._response(False, f"Error al restablecer la base de datos: {e}")
+
     def _wrap_pair(self, pair):
         success, message = pair
         return self._response(success, message)
+
