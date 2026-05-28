@@ -1170,8 +1170,18 @@ async function openUpdateInvoiceModal() {
   }
 
   if (pending.length === 0) {
-    // Sin cambios pendientes: flujo clásico (seleccionar producto)
-    await openClassicSwapModal(ticketId);
+    showModal(
+      "Sin cambios pendientes",
+      `<div style="text-align:center; padding:14px 0;">
+        <div style="font-size:2rem; margin-bottom:10px;">✅</div>
+        <div style="font-weight:700; margin-bottom:8px;">No hay devoluciones pendientes de cambio</div>
+        <div style="color:var(--muted); font-size:0.9rem;">
+          Para hacer un cambio, primero devuelve el producto con motivo
+          <strong>"Cambio / Talla"</strong> en la sección de Devoluciones.
+        </div>
+      </div>`,
+      [{ label: "Entendido", kind: "primary-btn" }]
+    );
     return;
   }
 
