@@ -1191,30 +1191,49 @@ async function openUpdateInvoiceModal() {
       border: 1.5px solid var(--warning, #f59e0b);
       border-radius: 12px;
       padding: 14px 16px;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
       background: rgba(245,158,11,0.07);
-    ">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-        <div>
-          <div style="font-weight:700; font-size:0.97rem;">${p.nombre}</div>
-          <div style="font-size:0.82rem; color:var(--muted); margin-top:2px;">
-            ${p.codigo_producto}${p.talla ? ' · Talla ' + p.talla : ''} · ${p.cantidad} unidad(es)
-          </div>
-          <div style="font-size:0.8rem; color:var(--muted); margin-top:2px;">Motivo: ${p.motivo}</div>
-        </div>
-        <span style="font-size:1.4rem;">🔄</span>
+    " class="pending-card">
+      <div style="line-height:1.6; font-size:0.95rem; margin-bottom:10px;">
+        <div><strong>Producto a cambiar:</strong> ${p.cantidad} × ${p.nombre} <span style="color:var(--muted)">(${p.codigo_producto}${p.talla ? ' · Talla ' + p.talla : ''})</span></div>
       </div>
-      <div style="margin-top:12px;">
-        <div style="font-weight:600; margin-bottom:6px; font-size:0.9rem;">Código del nuevo producto:</div>
-        <input
-          type="text"
-          class="pending-new-code"
-          data-id-devolucion="${p.id_devolucion}"
-          data-nombre-viejo="${p.nombre}"
-          data-cantidad="${p.cantidad}"
-          placeholder="Escanear o ingresar código"
-          style="width:100%; padding:9px 12px; border:1.5px solid var(--line); border-radius:9px; font-size:1rem; background:var(--surface); color:var(--text); box-sizing:border-box;"
-        />
+      
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <div>
+          <div style="font-weight:600; margin-bottom:4px; font-size:0.87rem;">Código nueva prenda:</div>
+          <input
+            type="text"
+            class="pending-new-code"
+            data-id-devolucion="${p.id_devolucion}"
+            data-nombre-viejo="${p.nombre}"
+            placeholder="Escanear o ingresar código"
+            style="width:100%; padding:9px 12px; border:1.5px solid var(--line); border-radius:9px; font-size:0.95rem; background:var(--surface); color:var(--text); box-sizing:border-box;"
+          />
+        </div>
+        
+        <div style="display:flex; gap:12px;">
+          <div style="flex:1;">
+            <div style="font-weight:600; margin-bottom:4px; font-size:0.87rem;">Cantidad a agregar:</div>
+            <input
+              type="number"
+              class="pending-qty"
+              min="1"
+              max="${p.cantidad}"
+              value="${p.cantidad}"
+              style="width:100%; padding:9px 12px; border:1.5px solid var(--line); border-radius:9px; font-size:0.95rem; background:var(--surface); color:var(--text); box-sizing:border-box;"
+            />
+          </div>
+          <div style="flex:2;">
+            <div style="font-weight:600; margin-bottom:4px; font-size:0.87rem;">Motivo:</div>
+            <input
+              type="text"
+              class="pending-motivo"
+              value="${p.motivo || 'Cambio / Talla'}"
+              placeholder="Motivo del cambio"
+              style="width:100%; padding:9px 12px; border:1.5px solid var(--line); border-radius:9px; font-size:0.95rem; background:var(--surface); color:var(--text); box-sizing:border-box;"
+            />
+          </div>
+        </div>
       </div>
     </div>
   `).join("");
@@ -1241,18 +1260,30 @@ async function openUpdateInvoiceModal() {
         kind: "primary-btn",
         close: false,
         onClick: async () => {
-          const inputs = document.querySelectorAll(".pending-new-code");
+          const cards = document.querySelectorAll(".pending-card");
           let anyDone = false;
           let lastTotal = null;
           let errors = [];
 
-          for (const input of inputs) {
+          for (const card of cards) {
+            const input = card.querySelector(".pending-new-code");
             const newCodigo = input.value.trim().replace(/`/g, "-");
             if (!newCodigo) continue; // saltar si no ingresaron código
 
             const idDevolucion = Number(input.dataset.idDevolucion);
             const nombreViejo = input.dataset.nombreViejo;
-            const cantidad = Number(input.dataset.cantidad);
+            
+            const qtyInput = card.querySelector(".pending-qty");
+            const motivoInput = card.querySelector(".pending-motivo");
+            
+            const cantidad = Number(qtyInput.value);
+            const maxCantidad = Number(qtyInput.max);
+            const motivo = motivoInput.value.trim();
+
+            if (isNaN(cantidad) || cantidad < 1 || cantidad > maxCantidad) {
+              errors.push(`Cantidad no válida para "${nombreViejo}". Debe ser entre 1 y ${maxCantidad}.`);
+              continue;
+            }
 
             // Verificar que el nuevo producto existe antes de confirmar
             let newProd = null;
@@ -1289,6 +1320,8 @@ async function openUpdateInvoiceModal() {
                         const result = await apiCall("complete_exchange", {
                           id_devolucion: idDevolucion,
                           new_codigo: newCodigo,
+                          cantidad: cantidad,
+                          motivo: motivo,
                         });
                         lastTotal = result.data?.new_total || lastTotal;
                         anyDone = true;

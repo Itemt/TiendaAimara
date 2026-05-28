@@ -412,11 +412,17 @@ class AimaraAPI:
 
         id_devolucion = int(payload.get("id_devolucion", 0))
         new_codigo = str(payload.get("new_codigo", "")).strip()
+        cantidad = payload.get("cantidad")
+        if cantidad is not None:
+            cantidad = int(cantidad)
+        motivo = payload.get("motivo")
 
         if not id_devolucion or not new_codigo:
             return self._response(False, "id_devolucion y new_codigo son obligatorios.")
 
-        success, message, new_total = ReturnModel.complete_exchange(id_devolucion, new_codigo)
+        success, message, new_total = ReturnModel.complete_exchange(
+            id_devolucion, new_codigo, cantidad=cantidad, motivo=motivo
+        )
         if not success:
             return self._response(False, message)
 

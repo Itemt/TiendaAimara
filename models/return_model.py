@@ -159,7 +159,7 @@ class ReturnModel:
         ]
 
     @staticmethod
-    def complete_exchange(id_devolucion, new_codigo):
+    def complete_exchange(id_devolucion, new_codigo, cantidad=None, motivo=None):
         """
         Completa un cambio pendiente:
         1. Obtiene la devolución pendiente (producto viejo y cantidad).
@@ -169,7 +169,9 @@ class ReturnModel:
         5. Inserta/fusiona el nuevo producto en detalles_venta.
         6. Recalcula total de la venta.
         7. Registra en tabla cambios.
-        8. Marca la devolución como COMPLETADO.
+        8. Si se cambia la cantidad completa: Marca la devolución como COMPLETADO.
+           Si es un cambio parcial: reduce la cantidad de la devolución original
+           e inserta un nuevo registro de devolución marcado como COMPLETADO.
         Retorna (True/False, mensaje, new_total)
         """
         conn = get_connection()
@@ -178,7 +180,7 @@ class ReturnModel:
             # 1. Leer la devolución pendiente
             cursor.execute(
                 """
-                SELECT id_venta, codigo_producto, cantidad
+                SELECT id_venta, codigo_producto, cantidad, motivo, fecha
                 FROM devoluciones
                 WHERE id_devolucion = ? AND estado = 'PENDIENTE_CAMBIO'
                 """,
@@ -188,7 +190,15 @@ class ReturnModel:
             if not dev:
                 return False, "No se encontró una devolución pendiente con ese ID.", None
 
-            id_venta, old_codigo, cantidad = dev
+            id_venta, old_codigo, pending_qty, orig_motivo, fecha = dev
+
+            if cantidad is None or cantidad <= 0:
+                cantidad = pending_qty
+            
+            if cantidad > pending_qty:
+                return False, f"La cantidad solicitada ({cantidad}) supera la cantidad pendiente ({pending_qty}).", None
+
+            actual_motivo = motivo if motivo is not None else orig_motivo
 
             # 2. Validar nuevo producto
             cursor.execute(
@@ -252,7 +262,7 @@ class ReturnModel:
                     (id_venta, new_codigo, cantidad, float(new_precio) * cantidad),
                 )
 
-            # 6. Recalcular total
+            # 6. Recalcular total de la venta
             cursor.execute(
                 "SELECT COALESCE(SUM(subtotal), 0) FROM detalles_venta WHERE id_venta = ?",
                 (id_venta,),
@@ -263,19 +273,38 @@ class ReturnModel:
                 (new_total, id_venta),
             )
 
-            # 7. Registrar en tabla cambios
+            # 7. Manejo del estado de la devolución (completo vs parcial)
+            target_id_devolucion = id_devolucion
+            if cantidad == pending_qty:
+                # Caso completo: marcar la devolución original como COMPLETADO
+                cursor.execute(
+                    "UPDATE devoluciones SET estado = 'COMPLETADO', motivo = ? WHERE id_devolucion = ?",
+                    (actual_motivo, id_devolucion),
+                )
+            else:
+                # Caso parcial:
+                # A. Reducir la cantidad de la devolución original (sigue PENDIENTE_CAMBIO)
+                cursor.execute(
+                    "UPDATE devoluciones SET cantidad = ? WHERE id_devolucion = ?",
+                    (pending_qty - cantidad, id_devolucion),
+                )
+                # B. Crear una nueva fila para la porción completada
+                cursor.execute(
+                    """
+                    INSERT INTO devoluciones (id_venta, codigo_producto, cantidad, motivo, estado, fecha)
+                    VALUES (?, ?, ?, ?, 'COMPLETADO', ?)
+                    """,
+                    (id_venta, old_codigo, cantidad, actual_motivo, fecha),
+                )
+                target_id_devolucion = cursor.lastrowid
+
+            # 8. Registrar en tabla cambios
             cursor.execute(
                 """
                 INSERT INTO cambios (id_devolucion, id_venta, producto_anterior, producto_nuevo, cantidad)
                 VALUES (?, ?, ?, ?, ?)
                 """,
-                (id_devolucion, id_venta, old_codigo, new_codigo, cantidad),
-            )
-
-            # 8. Marcar la devolución como COMPLETADO
-            cursor.execute(
-                "UPDATE devoluciones SET estado = 'COMPLETADO' WHERE id_devolucion = ?",
-                (id_devolucion,),
+                (target_id_devolucion, id_venta, old_codigo, new_codigo, cantidad),
             )
 
             conn.commit()
