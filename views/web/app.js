@@ -1045,8 +1045,12 @@ async function loadReturnTicket(ticketId) {
 }
 
 function renderReturnTable(rows) {
+  // Consultar cambios pendientes para este ticket y enriquecer las filas
+  const ticketId = state.selectedReturnTicket;
+
   $("#returnTable").innerHTML = rows.map((row) => {
     const isReturnedAll = row.cantidad_restante <= 0;
+    const hasPending = row.pending_count > 0;
     return `
       <tr data-return-code="${row.codigo}">
         <td>
@@ -1055,7 +1059,9 @@ function renderReturnTable(rows) {
         </td>
         <td>
           Comprado: ${row.cantidad}<br/>
-          Devuelto: ${row.cantidad_devuelta}
+          Devuelto: ${row.cantidad_devuelta}<br/>
+          <span style="color: var(--muted); font-size:0.82rem;">Disponible: ${row.cantidad_restante}</span>
+          ${hasPending ? `<br/><span style="display:inline-block; margin-top:4px; padding:2px 8px; background:var(--warning, #f59e0b); color:#fff; border-radius:6px; font-size:0.78rem; font-weight:700;">🔄 ${row.pending_count} cambio(s) pendiente(s)</span>` : ''}
         </td>
         <td>
           <input type="number" class="return-qty-input" data-code="${row.codigo}" min="1" max="${row.cantidad_restante}" value="${row.cantidad_restante}" ${isReturnedAll ? "disabled" : ""} style="width: 70px; padding: 6px; border: 1px solid var(--line); border-radius: 8px;" />
@@ -1063,15 +1069,17 @@ function renderReturnTable(rows) {
         <td>
           <input type="text" class="return-reason-input" data-code="${row.codigo}" placeholder="Motivo" value="Cambio / Talla" ${isReturnedAll ? "disabled" : ""} style="padding: 6px; min-width: 120px; border: 1px solid var(--line); border-radius: 8px;" />
         </td>
-        <td>
+        <td style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
           <button class="danger-btn return-row-btn" data-code="${row.codigo}" ${isReturnedAll ? "disabled" : ""} style="padding: 6px 12px; font-size: 0.85rem;">
             Devolver
           </button>
+          ${hasPending ? `<button class="primary-btn pending-exchange-btn" data-code="${row.codigo}" style="padding: 6px 12px; font-size: 0.85rem; white-space:nowrap;">🔄 Cambio pendiente</button>` : ''}
         </td>
       </tr>
     `;
   }).join("");
 
+  // Botón Devolver
   $("#returnTable").querySelectorAll(".return-row-btn").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const code = btn.dataset.code;
@@ -1106,27 +1114,39 @@ function renderReturnTable(rows) {
               cantidad: quantity,
               motivo: reason,
             });
-            showModal("Devolución", response.message, [
-              { label: "Aceptar", kind: "primary-btn" },
-            ]);
+            // Si se creó un cambio pendiente, abrir modal de cambio inmediatamente
+            const esCambioPendiente = response.message && response.message.includes("Cambio pendiente");
             await refreshProducts();
             await refreshDashboard();
             await refreshHistory();
-            state.selectedReturnTicket = null;
-            $("#returnTicketInput").value = "";
-            $("#returnTicketInfo").innerHTML = "Devoluciones";
-            $("#returnTable").innerHTML = `
-              <tr>
-                <td colspan="5" style="text-align: center; color: var(--muted); padding: 40px 0;">
-                  Selecciona una venta de la lista o busca un ticket para comenzar.
-                </td>
-              </tr>
-            `;
-            await loadRecentSalesForReturns();
+            await loadReturnTicket(state.selectedReturnTicket);
+            if (esCambioPendiente) {
+              showModal("✅ Devolución registrada",
+                `<div style="text-align:center; padding:10px 0;">
+                  <div style="font-size:1.8rem; margin-bottom:8px;">🔄</div>
+                  <div style="font-weight:700; margin-bottom:6px;">${response.message}</div>
+                  <div style="color:var(--muted); font-size:0.9rem;">Puedes completar el cambio ahora o más tarde desde <strong>Actualizar Factura</strong>.</div>
+                </div>`,
+                [
+                  { label: "Después", kind: "secondary-btn" },
+                  { label: "🔄 Completar cambio ahora", kind: "primary-btn",
+                    onClick: () => openUpdateInvoiceModal() },
+                ]
+              );
+            } else {
+              showModal("Devolución", response.message, [
+                { label: "Aceptar", kind: "primary-btn" },
+              ]);
+            }
           }
         }
       ]);
     });
+  });
+
+  // Botón Cambio Pendiente (acceso directo)
+  $("#returnTable").querySelectorAll(".pending-exchange-btn").forEach((btn) => {
+    btn.addEventListener("click", () => openUpdateInvoiceModal());
   });
 }
 
@@ -1138,8 +1158,174 @@ async function openUpdateInvoiceModal() {
     return;
   }
 
-  // Cargar productos actuales de la venta
   const ticketId = state.selectedReturnTicket;
+
+  // Obtener cambios pendientes para este ticket
+  let pending = [];
+  try {
+    const pendingResp = await apiCall("get_pending_changes", { id_venta: ticketId });
+    pending = pendingResp.data || [];
+  } catch (e) {
+    pending = [];
+  }
+
+  if (pending.length === 0) {
+    // Sin cambios pendientes: flujo clásico (seleccionar producto)
+    await openClassicSwapModal(ticketId);
+    return;
+  }
+
+  // Hay cambios pendientes → mostrar lista de cambios pendientes pre-cargados
+  const pendingCards = pending.map((p) => `
+    <div style="
+      border: 1.5px solid var(--warning, #f59e0b);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      background: rgba(245,158,11,0.07);
+    ">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+          <div style="font-weight:700; font-size:0.97rem;">${p.nombre}</div>
+          <div style="font-size:0.82rem; color:var(--muted); margin-top:2px;">
+            ${p.codigo_producto}${p.talla ? ' · Talla ' + p.talla : ''} · ${p.cantidad} unidad(es)
+          </div>
+          <div style="font-size:0.8rem; color:var(--muted); margin-top:2px;">Motivo: ${p.motivo}</div>
+        </div>
+        <span style="font-size:1.4rem;">🔄</span>
+      </div>
+      <div style="margin-top:12px;">
+        <div style="font-weight:600; margin-bottom:6px; font-size:0.9rem;">Código del nuevo producto:</div>
+        <input
+          type="text"
+          class="pending-new-code"
+          data-id-devolucion="${p.id_devolucion}"
+          data-nombre-viejo="${p.nombre}"
+          data-cantidad="${p.cantidad}"
+          placeholder="Escanear o ingresar código"
+          style="width:100%; padding:9px 12px; border:1.5px solid var(--line); border-radius:9px; font-size:1rem; background:var(--surface); color:var(--text); box-sizing:border-box;"
+        />
+      </div>
+    </div>
+  `).join("");
+
+  const modalBody = `
+    <div style="display:flex; flex-direction:column; gap:4px;">
+      <div style="font-size:0.9rem; color:var(--muted); margin-bottom:8px;">
+        Factura <strong>#${ticketId}</strong> · ${pending.length} cambio(s) pendiente(s)
+      </div>
+      ${pendingCards}
+      <div style="margin-top:6px; font-size:0.82rem; color:var(--muted);">
+        Deja en blanco los que no deseas completar ahora.
+      </div>
+    </div>
+  `;
+
+  showModal(
+    `🔄 Completar Cambio(s) — Factura #${ticketId}`,
+    modalBody,
+    [
+      { label: "Cancelar", kind: "secondary-btn" },
+      {
+        label: "✅ Confirmar cambio(s)",
+        kind: "primary-btn",
+        close: false,
+        onClick: async () => {
+          const inputs = document.querySelectorAll(".pending-new-code");
+          let anyDone = false;
+          let lastTotal = null;
+          let errors = [];
+
+          for (const input of inputs) {
+            const newCodigo = input.value.trim().replace(/`/g, "-");
+            if (!newCodigo) continue; // saltar si no ingresaron código
+
+            const idDevolucion = Number(input.dataset.idDevolucion);
+            const nombreViejo = input.dataset.nombreViejo;
+            const cantidad = Number(input.dataset.cantidad);
+
+            // Verificar que el nuevo producto existe antes de confirmar
+            let newProd = null;
+            try {
+              const prodResp = await apiCall("get_product", newCodigo);
+              newProd = prodResp.data;
+            } catch (err) {
+              errors.push(`Producto ${newCodigo} no encontrado.`);
+              continue;
+            }
+
+            // Pedir confirmación individual
+            await new Promise((resolve) => {
+              showModal(
+                "Confirmar cambio",
+                `<div style="line-height:1.7; font-size:0.95rem;">
+                  <div><strong>Ticket:</strong> #${ticketId}</div>
+                  <div style="margin-top:10px;"><strong>❌ Sale:</strong></div>
+                  <div style="padding:8px 14px; background:var(--surface-2); border-radius:8px; margin:4px 0;">
+                    ${cantidad} × ${nombreViejo}
+                  </div>
+                  <div style="margin-top:10px;"><strong>✅ Entra:</strong></div>
+                  <div style="padding:8px 14px; background:var(--surface-2); border-radius:8px; margin:4px 0;">
+                    ${cantidad} × ${newProd.nombre} <span style="color:var(--muted)">(${newCodigo})</span> · ${money(newProd.precio)}
+                  </div>
+                </div>`,
+                [
+                  { label: "Cancelar este", kind: "secondary-btn", onClick: () => resolve(false) },
+                  {
+                    label: "✅ Confirmar",
+                    kind: "primary-btn",
+                    onClick: async () => {
+                      try {
+                        const result = await apiCall("complete_exchange", {
+                          id_devolucion: idDevolucion,
+                          new_codigo: newCodigo,
+                        });
+                        lastTotal = result.data?.new_total || lastTotal;
+                        anyDone = true;
+                        // Imprimir factura actualizada
+                        if (result.data?.new_total) {
+                          const detRes = await apiCall("get_sale_details", { id_venta: ticketId });
+                          printReceiptDirect(ticketId, result.data.new_total, detRes.data || []);
+                        }
+                      } catch (err) {
+                        errors.push(err.message);
+                      }
+                      resolve(true);
+                    }
+                  }
+                ]
+              );
+            });
+          }
+
+          await refreshProducts();
+          await refreshDashboard();
+          await refreshHistory();
+          await loadReturnTicket(ticketId);
+
+          if (errors.length > 0) {
+            showModal("⚠️ Errores", errors.join("<br/>"), [{ label: "Aceptar", kind: "primary-btn" }]);
+          } else if (anyDone) {
+            showModal(
+              "✅ Cambio(s) completado(s)",
+              `<div style="text-align:center; padding:10px 0;">
+                <div style="font-size:2rem; margin-bottom:8px;">🧾</div>
+                <div style="font-weight:700; font-size:1.1rem; margin-bottom:6px;">Cambio(s) completado(s) exitosamente</div>
+                <div style="color:var(--muted); font-size:0.9rem;">Ticket #${ticketId} · Nuevo total: ${money(lastTotal)}</div>
+              </div>`,
+              [{ label: "Aceptar", kind: "primary-btn" }]
+            );
+          } else {
+            hideModal();
+          }
+        },
+      },
+    ]
+  );
+}
+
+// Flujo clásico de cambio cuando NO hay cambios pendientes
+async function openClassicSwapModal(ticketId) {
   const response = await apiCall("get_return_ticket", { id_venta: ticketId });
   const rows = response.data || [];
 
@@ -1242,7 +1428,6 @@ async function openUpdateInvoiceModal() {
             ]);
             return;
           }
-
           if (!newCodigo) {
             showModal("Actualizar Factura", "Debes ingresar el código del nuevo producto.", [
               { label: "Aceptar", kind: "primary-btn" },
@@ -1256,11 +1441,9 @@ async function openUpdateInvoiceModal() {
             return;
           }
 
-          // Buscar nombre del producto viejo para mostrar en confirmación
           const oldRow = rows.find((r) => r.codigo === oldCodigo);
           const oldNombre = oldRow ? oldRow.nombre : oldCodigo;
 
-          // Verificar que el nuevo producto existe
           let newProduct = null;
           try {
             const prodResp = await apiCall("get_product", newCodigo);
@@ -1290,7 +1473,7 @@ async function openUpdateInvoiceModal() {
               {
                 label: "Cancelar",
                 kind: "secondary-btn",
-                onClick: () => openUpdateInvoiceModal(),
+                onClick: () => openClassicSwapModal(ticketId),
               },
               {
                 label: "✅ Confirmar y reimprimir",
@@ -1304,7 +1487,6 @@ async function openUpdateInvoiceModal() {
                     motivo: motivo,
                   });
 
-                  // Imprimir la factura actualizada directamente
                   const updatedItems = result.data.receipt_items || [];
                   const newTotal = result.data.new_total || 0;
                   printReceiptDirect(ticketId, newTotal, updatedItems);
@@ -1327,7 +1509,6 @@ async function openUpdateInvoiceModal() {
                           await refreshProducts();
                           await refreshDashboard();
                           await refreshHistory();
-                          // Recargar el ticket para ver el estado actualizado
                           await loadReturnTicket(ticketId);
                         },
                       },

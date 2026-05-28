@@ -56,13 +56,19 @@ class ReturnModel:
                     f"Solo quedan {restante} unidad(es) por devolver de este producto.",
                 )
 
-            # 1. Registrar en tabla devoluciones
+            # Determinar estado: si el motivo contiene 'cambio' o 'talla' => PENDIENTE_CAMBIO
+            motivo_lower = (motivo or "").lower()
+            estado = "PENDIENTE_CAMBIO" if any(
+                kw in motivo_lower for kw in ("cambio", "talla")
+            ) else None
+
+            # 1. Registrar en tabla devoluciones con estado
             cursor.execute(
                 """
-                INSERT INTO devoluciones (id_venta, codigo_producto, cantidad, motivo)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO devoluciones (id_venta, codigo_producto, cantidad, motivo, estado)
+                VALUES (?, ?, ?, ?, ?)
             """,
-                (id_venta, codigo_producto, cantidad_devuelta, motivo),
+                (id_venta, codigo_producto, cantidad_devuelta, motivo, estado),
             )
 
             # 2. Reingresar el stock
@@ -76,7 +82,8 @@ class ReturnModel:
             )
 
             conn.commit()
-            return True, "Devolución procesada y stock reingresado."
+            estado_msg = " Cambio pendiente registrado." if estado == "PENDIENTE_CAMBIO" else ""
+            return True, f"Devolución procesada y stock reingresado.{estado_msg}"
         except Exception as e:
             conn.rollback()
             return False, str(e)
@@ -111,6 +118,174 @@ class ReturnModel:
         row = cursor.fetchone()
         conn.close()
         return row
+
+    @staticmethod
+    def get_pending_changes(id_venta):
+        """
+        Devuelve las devoluciones con estado='PENDIENTE_CAMBIO' de esta venta,
+        junto con info del producto devuelto.
+        """
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT d.id_devolucion,
+                   d.codigo_producto,
+                   COALESCE(p.nombre, d.codigo_producto) AS nombre,
+                   COALESCE(p.talla, '') AS talla,
+                   d.cantidad,
+                   d.motivo,
+                   d.fecha
+            FROM devoluciones d
+            LEFT JOIN productos p ON d.codigo_producto = p.codigo
+            WHERE d.id_venta = ? AND d.estado = 'PENDIENTE_CAMBIO'
+            ORDER BY d.fecha ASC
+            """,
+            (id_venta,),
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        return [
+            {
+                "id_devolucion": r[0],
+                "codigo_producto": r[1],
+                "nombre": r[2],
+                "talla": r[3],
+                "cantidad": r[4],
+                "motivo": r[5],
+                "fecha": r[6],
+            }
+            for r in rows
+        ]
+
+    @staticmethod
+    def complete_exchange(id_devolucion, new_codigo):
+        """
+        Completa un cambio pendiente:
+        1. Obtiene la devolución pendiente (producto viejo y cantidad).
+        2. Valida stock del nuevo producto.
+        3. Descuenta stock del nuevo producto (el viejo ya fue reingresado en process_return).
+        4. Reduce subtotal del producto viejo en detalles_venta.
+        5. Inserta/fusiona el nuevo producto en detalles_venta.
+        6. Recalcula total de la venta.
+        7. Registra en tabla cambios.
+        8. Marca la devolución como COMPLETADO.
+        Retorna (True/False, mensaje, new_total)
+        """
+        conn = get_connection()
+        cursor = conn.cursor()
+        try:
+            # 1. Leer la devolución pendiente
+            cursor.execute(
+                """
+                SELECT id_venta, codigo_producto, cantidad
+                FROM devoluciones
+                WHERE id_devolucion = ? AND estado = 'PENDIENTE_CAMBIO'
+                """,
+                (id_devolucion,),
+            )
+            dev = cursor.fetchone()
+            if not dev:
+                return False, "No se encontró una devolución pendiente con ese ID.", None
+
+            id_venta, old_codigo, cantidad = dev
+
+            # 2. Validar nuevo producto
+            cursor.execute(
+                "SELECT nombre, precio, stock FROM productos WHERE codigo = ?",
+                (new_codigo,),
+            )
+            new_prod = cursor.fetchone()
+            if not new_prod:
+                return False, f"El producto nuevo (código: {new_codigo}) no existe en el inventario.", None
+
+            new_nombre, new_precio, new_stock = new_prod
+            if int(new_stock) < cantidad:
+                return (
+                    False,
+                    f"Stock insuficiente para '{new_nombre}'.\nDisponible: {new_stock}, requerido: {cantidad}.",
+                    None,
+                )
+
+            # 3. Descontar stock del nuevo producto
+            cursor.execute(
+                "UPDATE productos SET stock = stock - ? WHERE codigo = ?",
+                (cantidad, new_codigo),
+            )
+
+            # 4. Reducir subtotal del producto viejo en detalles_venta
+            cursor.execute(
+                "SELECT id_detalle, cantidad, subtotal FROM detalles_venta WHERE id_venta = ? AND codigo_producto = ?",
+                (id_venta, old_codigo),
+            )
+            old_dv = cursor.fetchone()
+            if old_dv:
+                id_detalle, old_cant, old_subtotal = old_dv
+                old_price_unit = float(old_subtotal) / int(old_cant) if int(old_cant) > 0 else 0
+                nuevo_subtotal_viejo = max(old_price_unit * (int(old_cant) - cantidad), 0)
+                cursor.execute(
+                    "UPDATE detalles_venta SET subtotal = ? WHERE id_detalle = ?",
+                    (nuevo_subtotal_viejo, id_detalle),
+                )
+
+            # 5. Insertar o fusionar el nuevo producto en detalles_venta
+            cursor.execute(
+                "SELECT id_detalle FROM detalles_venta WHERE id_venta = ? AND codigo_producto = ?",
+                (id_venta, new_codigo),
+            )
+            existing_new = cursor.fetchone()
+            if existing_new:
+                cursor.execute(
+                    """
+                    UPDATE detalles_venta
+                    SET cantidad = cantidad + ?, subtotal = subtotal + ?
+                    WHERE id_detalle = ?
+                    """,
+                    (cantidad, float(new_precio) * cantidad, existing_new[0]),
+                )
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO detalles_venta (id_venta, codigo_producto, cantidad, subtotal)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (id_venta, new_codigo, cantidad, float(new_precio) * cantidad),
+                )
+
+            # 6. Recalcular total
+            cursor.execute(
+                "SELECT COALESCE(SUM(subtotal), 0) FROM detalles_venta WHERE id_venta = ?",
+                (id_venta,),
+            )
+            new_total = cursor.fetchone()[0]
+            cursor.execute(
+                "UPDATE ventas SET total = ? WHERE id_venta = ?",
+                (new_total, id_venta),
+            )
+
+            # 7. Registrar en tabla cambios
+            cursor.execute(
+                """
+                INSERT INTO cambios (id_devolucion, id_venta, producto_anterior, producto_nuevo, cantidad)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (id_devolucion, id_venta, old_codigo, new_codigo, cantidad),
+            )
+
+            # 8. Marcar la devolución como COMPLETADO
+            cursor.execute(
+                "UPDATE devoluciones SET estado = 'COMPLETADO' WHERE id_devolucion = ?",
+                (id_devolucion,),
+            )
+
+            conn.commit()
+            return True, f"Cambio completado: {new_nombre} ingresado a la venta.", new_total
+
+        except Exception as e:
+            conn.rollback()
+            return False, str(e), None
+        finally:
+            conn.close()
 
     @staticmethod
     def update_sale_item(id_venta, old_codigo, new_codigo, cantidad, motivo):

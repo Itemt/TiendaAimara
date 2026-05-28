@@ -90,16 +90,36 @@ def init_db():
         cantidad INTEGER NOT NULL,
         fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
         motivo TEXT,
+        estado TEXT DEFAULT NULL,
         FOREIGN KEY(id_venta) REFERENCES ventas(id_venta),
         FOREIGN KEY(codigo_producto) REFERENCES productos(codigo)
     )
     """)
 
-    # Migración: agregar metodo_pago si no existe (para BD ya creadas)
-    try:
-        cursor.execute("ALTER TABLE ventas ADD COLUMN metodo_pago TEXT NOT NULL DEFAULT 'Efectivo'")
-    except Exception:
-        pass  # La columna ya existe, ignorar
+    # Tabla Cambios (vincula una devolución con el nuevo producto recibido)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS cambios (
+        id_cambio INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_devolucion INTEGER NOT NULL,
+        id_venta INTEGER NOT NULL,
+        producto_anterior TEXT NOT NULL,
+        producto_nuevo TEXT NOT NULL,
+        cantidad INTEGER NOT NULL,
+        fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(id_devolucion) REFERENCES devoluciones(id_devolucion),
+        FOREIGN KEY(id_venta) REFERENCES ventas(id_venta)
+    )
+    """)
+
+    # Migraciones para BDs ya creadas
+    for migration in [
+        "ALTER TABLE ventas ADD COLUMN metodo_pago TEXT NOT NULL DEFAULT 'Efectivo'",
+        "ALTER TABLE devoluciones ADD COLUMN estado TEXT DEFAULT NULL",
+    ]:
+        try:
+            cursor.execute(migration)
+        except Exception:
+            pass  # La columna ya existe, ignorar
 
     conn.commit()
     conn.close()

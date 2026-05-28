@@ -325,6 +325,12 @@ class AimaraAPI:
         if not details:
             return self._response(False, "No se encontraron detalles para ese ticket.")
         returned_quantities = ReturnModel.get_accepted_return_quantities(int(id_venta))
+        # Contar cambios pendientes por código de producto
+        pending_changes = ReturnModel.get_pending_changes(int(id_venta))
+        pending_count_by_code = {}
+        for p in pending_changes:
+            code = p["codigo_producto"]
+            pending_count_by_code[code] = pending_count_by_code.get(code, 0) + 1
         data = []
         for row in details:
             codigo = row[1]
@@ -342,6 +348,7 @@ class AimaraAPI:
                     "subtotal": row[7],
                     "cantidad_devuelta": already_returned,
                     "cantidad_restante": max(original_qty - already_returned, 0),
+                    "pending_count": pending_count_by_code.get(codigo, 0),
                 }
             )
         return self._response(True, data=data)
@@ -384,6 +391,60 @@ class AimaraAPI:
         return self._wrap_pair(
             ReturnModel.process_return(id_venta, codigo_producto, cantidad, motivo)
         )
+
+    def get_pending_changes(self, payload):
+        """Devuelve las devoluciones con estado=PENDIENTE_CAMBIO de una venta."""
+        protected = self._require_login()
+        if protected:
+            return protected
+        id_venta = int(payload.get("id_venta", 0) if isinstance(payload, dict) else payload)
+        pending = ReturnModel.get_pending_changes(id_venta)
+        return self._response(True, data=pending)
+
+    def complete_exchange(self, payload):
+        """Completa un cambio pendiente: vincula devolución con el nuevo producto."""
+        protected = self._require_login()
+        if protected:
+            return protected
+
+        if not isinstance(payload, dict):
+            return self._response(False, "Payload inválido.")
+
+        id_devolucion = int(payload.get("id_devolucion", 0))
+        new_codigo = str(payload.get("new_codigo", "")).strip()
+
+        if not id_devolucion or not new_codigo:
+            return self._response(False, "id_devolucion y new_codigo son obligatorios.")
+
+        success, message, new_total = ReturnModel.complete_exchange(id_devolucion, new_codigo)
+        if not success:
+            return self._response(False, message)
+
+        # Regenerar PDF de factura actualizada
+        try:
+            id_venta = None  # se obtiene desde la tabla cambios
+            from models.database import get_connection as _gc
+            _conn = _gc()
+            _cur = _conn.cursor()
+            _cur.execute("SELECT id_venta FROM cambios WHERE id_devolucion = ? ORDER BY id_cambio DESC LIMIT 1", (id_devolucion,))
+            _row = _cur.fetchone()
+            _conn.close()
+            if _row:
+                id_venta = _row[0]
+                details = SaleModel.get_sale_details(id_venta)
+                receipt_products = [
+                    {"nombre": item["nombre"], "cantidad": item["cantidad"], "subtotal": item["subtotal"]}
+                    for item in details
+                ]
+                output_dir = self._get_web_output_dir()
+                PrinterManager.generate_receipt_pdf(
+                    {"id_venta": id_venta, "total": new_total}, receipt_products,
+                    str(output_dir / "receipt.pdf")
+                )
+        except Exception:
+            pass
+
+        return self._response(True, message, {"new_total": new_total, "output": "/receipt.pdf"})
 
     def get_inventory_report(self):
         protected = self._require_login()
@@ -709,12 +770,13 @@ class AimaraAPI:
             conn = get_connection()
             cursor = conn.cursor()
             cursor.execute("PRAGMA foreign_keys = OFF")
+            cursor.execute("DELETE FROM cambios")
             cursor.execute("DELETE FROM devoluciones")
             cursor.execute("DELETE FROM detalles_venta")
             cursor.execute("DELETE FROM ventas")
             cursor.execute("DELETE FROM productos")
             cursor.execute(
-                "DELETE FROM sqlite_sequence WHERE name IN ('ventas', 'detalles_venta', 'devoluciones', 'productos')"
+                "DELETE FROM sqlite_sequence WHERE name IN ('ventas', 'detalles_venta', 'devoluciones', 'cambios', 'productos')"
             )
             cursor.execute("PRAGMA foreign_keys = ON")
             conn.commit()
