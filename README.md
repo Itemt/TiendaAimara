@@ -3,7 +3,7 @@
 Sistema de Punto de Venta para **Tienda Aimara** — boutique de moda.  
 Construido con Python + interfaz web local (HTML/CSS/JS) servida por un servidor HTTP embebido.
 
-> **Versión actual: v1.8.0**
+> **Versión actual: v2.0.0**
 
 ---
 
@@ -69,6 +69,21 @@ Requiere Python 3.9+ y PyInstaller instalado. El ejecutable queda en `dist/Aimar
 ---
 
 ## 📋 Historial de versiones
+
+### v2.0.0 — 2026-05-28
+- ✅ **Flujo de Devoluciones y Cambios Vinculados** — Completada la integración del flujo de cambios automáticos. Ahora, al hacer un cambio, no se vuelve a preguntar qué producto cambiar; el sistema ya sabe cuál se devolvió previamente bajo el estado "Pendiente de Cambio" y permite escanear el nuevo producto directamente, asociándolos mediante el ID de la devolución.
+
+### v1.9.1 — 2026-05-28
+- ✅ **Optimización de Actualizar Factura** — Se eliminó el flujo clásico manual (selección de producto). Si no hay devoluciones pendientes con estado de cambio, se muestra un mensaje informativo que guía al cajero a realizar primero la devolución con motivo "Cambio / Talla".
+
+### v1.9.0 — 2026-05-28
+- ✅ **Estado de Devoluciones** — Agregada columna de estado (`PENDIENTE_CAMBIO`, `COMPLETADO`) en la base de datos para registrar y enlazar los cambios de prendas de forma precisa.
+
+### v1.8.5 — 2026-05-28
+- ✅ **Estabilidad y Trazabilidad** — Eliminación de archivos innecesarios de entorno de desarrollo y correcciones finales para el tracking de cambios.
+
+### v1.8.1 — 2026-05-28
+- ✅ **Corrección en Cantidad Comprada** — Corrección para conservar la cantidad comprada original en `detalles_venta` al realizar devoluciones parciales y cambios.
 
 ### v1.8.0 — 2026-05-28
 - ✅ **Devoluciones/Cambios Parciales** — Se rediseñó el flujo de "Actualizar Factura" en el módulo de devoluciones para permitir el cambio de una cantidad seleccionada (no obligatoriamente todo el stock comprado) de un producto.
