@@ -3,7 +3,7 @@
 Sistema de Punto de Venta para **Tienda Aimara** — boutique de moda.  
 Construido con Python + interfaz web local (HTML/CSS/JS) servida por un servidor HTTP embebido.
 
-> **Versión actual: v2.0.0**
+> **Versión actual: v2.1.0**
 
 ---
 
@@ -69,6 +69,10 @@ Requiere Python 3.9+ y PyInstaller instalado. El ejecutable queda en `dist/Aimar
 ---
 
 ## 📋 Historial de versiones
+
+### v2.1.0 — 2026-05-28
+- ✅ **Optimización de Caché y Cambios Parciales** — Se agregaron cabeceras `Cache-Control: no-cache` y parámetros de versión en los recursos web para evitar que el navegador cachee código JavaScript antiguo.
+- ✅ **Flujo de Intercambio Adaptativo** — En la sección "Actualizar Factura", se muestra como texto estático la prenda y cantidad que se devolvió previamente. Permite realizar cambios parciales de forma secuencial reduciendo la cantidad pendiente por ID de devolución.
 
 ### v2.0.0 — 2026-05-28
 - ✅ **Flujo de Devoluciones y Cambios Vinculados** — Completada la integración del flujo de cambios automáticos. Ahora, al hacer un cambio, no se vuelve a preguntar qué producto cambiar; el sistema ya sabe cuál se devolvió previamente bajo el estado "Pendiente de Cambio" y permite escanear el nuevo producto directamente, asociándolos mediante el ID de la devolución.
