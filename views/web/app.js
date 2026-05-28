@@ -450,15 +450,6 @@ function productToRow(product) {
 function renderDashboard() {
   if (!state.dashboard) return;
 
-  const adminPanel = $("#adminPanel");
-  if (adminPanel) {
-    if (state.user && state.user.rol === "admin") {
-      adminPanel.style.display = "block";
-    } else {
-      adminPanel.style.display = "none";
-    }
-  }
-
   const stats = state.dashboard.stats;
   const cards = [
     ["Ventas", stats.sales_count, "Tickets emitidos"],
