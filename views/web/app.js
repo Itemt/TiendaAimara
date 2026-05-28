@@ -10,6 +10,9 @@ const state = {
   theme: "light",
   users: [],
   selectedForPrint: new Set(),
+  // Pago
+  selectedPaymentMethod: "Efectivo",
+  canceloAmount: 0,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -35,181 +38,139 @@ function money(value) {
   return `$${Number(value || 0).toFixed(2)}`;
 }
 
-function printReceiptDirect(saleId, total, items, metodoPago) {
-  const printWindow = window.open('', '_blank', 'width=600,height=600');
-  const formatMoney = (value) => {
-    return '$' + Math.round(Number(value || 0)).toLocaleString('en-US');
-  };
+function printReceiptDirect(saleId, total, items, metodoPago, cancelo) {
+  const printWindow = window.open('', '_blank', 'width=620,height=800');
+  if (!printWindow) {
+    alert('El navegador bloqueó la ventana de impresión. Permite las ventanas emergentes.');
+    return;
+  }
+  const fmt = (value) => '$' + Math.round(Number(value || 0)).toLocaleString('es-CO');
   metodoPago = metodoPago || 'Efectivo';
-  const metodoPagoIconos = { 'Efectivo': '💵', 'Datáfono': '💳', 'Transferencia': '📲' };
-  const metodoPagoIcon = metodoPagoIconos[metodoPago] || '';
-  const itemsHtml = items.map(item => `
-    <div class="item-row">
-      <div class="item-name">${item.nombre.toUpperCase()}</div>
-      <div class="item-details">
-        <span class="item-qty-price">${item.cantidad} x ${formatMoney(item.precio)}</span>
-        <span class="item-subtotal">${formatMoney(item.subtotal)}</span>
-      </div>
-    </div>
-  `).join('');
-  
+  cancelo = Number(cancelo) || total;
+  const cambio = Math.max(0, cancelo - total);
+  const cajero = (state.user && state.user.username) ? state.user.username.toUpperCase() : 'CAJERO';
+
   const now = new Date();
-  const dateStr = now.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  const timeStr = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-  
+  const dateStr = now.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const timeStr = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+  // Tabla de productos estilo DIAN: # | Descripción | Cant | V.Unit | Total
+  const itemRows = items.map((item, idx) => `
+    <tr>
+      <td>${idx + 1}</td>
+      <td>${String(item.nombre).toUpperCase()}</td>
+      <td style="text-align:center">${item.cantidad}</td>
+      <td style="text-align:right">${fmt(item.precio)}</td>
+      <td style="text-align:right">${fmt(item.subtotal)}</td>
+    </tr>
+  `).join('');
+
+  const medioPagoLabel = metodoPago === 'Datáfono' ? 'DATÁFONO' :
+                         metodoPago === 'Transferencia' ? 'TRANSFERENCIA' : 'EFECTIVO';
+
   const html = `
     <html>
     <head>
       <title>Ticket #${saleId}</title>
       <style>
-        @page {
-          size: 58mm auto;
-          margin: 0;
-        }
+        @page { size: 58mm auto; margin: 0; }
+        * { box-sizing: border-box; }
         body {
           width: 58mm;
           margin: 0;
-          padding: 4mm 4mm 8mm 4mm;
-          font-family: Arial, Helvetica, sans-serif;
-          font-size: 11px;
+          padding: 3mm 3mm 10mm 3mm;
+          font-family: 'Courier New', Courier, monospace;
+          font-size: 9.5px;
           font-weight: bold;
           color: #000;
           background: #fff;
-          box-sizing: border-box;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
         }
-        .text-center { text-align: center; }
-        .text-right { text-align: right; }
-        .bold { font-weight: bold; }
-        .header {
-          margin-bottom: 8px;
-          line-height: 1.3;
-        }
-        .title {
-          font-size: 18px;
-          font-weight: 900;
-          margin: 0 0 4px 0;
-          letter-spacing: 0.5px;
-        }
-        .subtitle-info {
-          font-size: 9.5px;
-          font-weight: bold;
-          margin: 2px 0;
-        }
-        .separator {
-          border-top: 1.8px solid #000;
-          margin: 8px 0;
-        }
-        .info-section {
-          font-size: 10.5px;
-          line-height: 1.45;
-          margin: 6px 0;
-        }
-        .info-title {
-          font-weight: bold;
-          font-size: 11.5px;
-        }
-        .items-section {
-          margin: 8px 0;
-        }
-        .item-row {
-          margin-bottom: 8px;
-          page-break-inside: avoid;
-        }
-        .item-name {
-          font-size: 11px;
-          font-weight: bold;
-          text-transform: uppercase;
-          margin-bottom: 2px;
-        }
-        .item-details {
-          display: flex;
-          justify-content: space-between;
-          font-size: 10.5px;
-        }
-        .item-qty-price {
-          font-style: italic;
-          font-weight: bold;
-        }
-        .item-subtotal {
-          font-weight: bold;
-        }
-        .total-container {
-          margin-top: 10px;
-          page-break-inside: avoid;
-        }
-        .total-line {
-          float: right;
-          width: 45%;
-          border-top: 1.5px solid #000;
-          margin-bottom: 4px;
-        }
-        .total-row {
-          font-size: 13.5px;
-          font-weight: bold;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-        .policies-section {
-          margin-top: 20px;
-          font-size: 9.5px;
-          line-height: 1.4;
-          text-align: center;
-          page-break-inside: avoid;
-        }
-        .policies-title {
-          font-weight: bold;
-          font-size: 10.5px;
-          margin-bottom: 4px;
-        }
+        .center { text-align: center; }
+        .right  { text-align: right; }
+        .bold   { font-weight: 900; }
+        .title  { font-size: 13px; font-weight: 900; letter-spacing: 0.5px; margin: 2px 0; }
+        .sep    { border-top: 1px dashed #000; margin: 4px 0; }
+        .sep2   { border-top: 2px solid #000; margin: 4px 0; }
+        table   { width: 100%; border-collapse: collapse; font-size: 8.5px; }
+        th      { font-size: 8px; border-bottom: 1px solid #000; padding: 2px 1px; }
+        td      { padding: 2px 1px; vertical-align: top; }
+        .tot-row { display: flex; justify-content: space-between; margin: 1.5px 0; font-size: 9px; }
+        .tot-row.big { font-size: 11px; font-weight: 900; margin-top: 3px; }
+        .badge  { border: 1.5px solid #000; padding: 2px 6px; display: inline-block; margin: 3px 0; font-size: 9px; }
+        .pago-row { display: flex; justify-content: space-between; font-size: 9px; margin: 1.5px 0; }
       </style>
     </head>
     <body>
-      <div class="text-center header">
+      <!-- ENCABEZADO -->
+      <div class="center">
         <div class="title">AIMARA MODA</div>
-        <div class="subtitle-info">NIT: 1065.890.123-1</div>
-        <div class="subtitle-info">Calle 50 #1 -7 Barrancabermeja</div>
-        <div class="subtitle-info">WhatsApp: +57 311 837 1495</div>
-      </div>
-      
-      <div class="separator"></div>
-      
-      <div class="info-section">
-        <div class="info-title">TICKET #: ${saleId}</div>
-        <div>FECHA: ${dateStr} &nbsp; HORA: ${timeStr}</div>
-        <div style="margin-top:3px; font-size: 10px;">PAGO: ${metodoPagoIcon} ${metodoPago.toUpperCase()}</div>
-      </div>
-      
-      <div class="separator"></div>
-      
-      <div class="items-section">
-        ${itemsHtml}
-      </div>
-      
-      <div class="total-container">
-        <div class="total-line"></div>
-        <div style="clear: both;"></div>
-        <div class="total-row">
-          <span>TOTAL:</span>
-          <span>${formatMoney(total)}</span>
-        </div>
-      </div>
-      
-      <div class="policies-section">
-        <div class="policies-title">POLÍTICAS DE CAMBIO</div>
-        <div>Conserve este ticket para cambios.</div>
-        <div>Plazo: 15 días. Etiquetas originales.</div>
+        <div>NIT: 1065.890.123-1</div>
+        <div>Calle 50 #1-7 Barrancabermeja</div>
+        <div>Tel: +57 311 837 1495</div>
         <div>IG: @Aimara_ModaFashion09</div>
       </div>
-      
+      <div class="sep2"></div>
+      <div style="font-size:8px; line-height:1.5;">
+        <div>Tipo Contribuyente: Persona Natural</div>
+        <div>Responsabilidad Trib.: No aplica</div>
+        <div>Régimen Fiscal: R-99-PN</div>
+        <div>Tipo de Operación: Estándar</div>
+      </div>
+      <div class="sep"></div>
+
+      <!-- INFO TICKET -->
+      <div style="display:flex; justify-content:space-between;">
+        <span class="bold">Sistema POS #${saleId}</span>
+        <span>${dateStr}</span>
+      </div>
+      <div>Hora: ${timeStr}</div>
+      <div class="sep"></div>
+
+      <!-- TABLA PRODUCTOS -->
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th style="text-align:left">Descripción</th>
+            <th>C/N</th>
+            <th style="text-align:right">V/Uni</th>
+            <th style="text-align:right">Total</th>
+          </tr>
+        </thead>
+        <tbody>${itemRows}</tbody>
+      </table>
+      <div class="sep2"></div>
+
+      <!-- TOTALES -->
+      <div class="tot-row"><span>TOTAL PRODUCTOS:</span><span>${items.length}</span></div>
+      <div class="tot-row big"><span>TOTAL:</span><span>${fmt(total)}</span></div>
+      <div class="tot-row"><span>CANCELO:</span><span>${fmt(cancelo)}</span></div>
+      <div class="tot-row"><span>CAMBIO:</span><span>${fmt(cambio)}</span></div>
+      <div class="sep"></div>
+
+      <!-- FORMA DE PAGO -->
+      <div class="center"><div class="badge">✓ ESTADO ACEPTADA</div></div>
+      <div class="center bold" style="margin:2px 0; font-size:9.5px;">FORMA DE PAGO</div>
+      <div class="pago-row"><span>FORMA DE PAGO:</span><span>CONTADO</span></div>
+      <div class="pago-row"><span>MEDIO DE PAGO:</span><span>${medioPagoLabel}</span></div>
+      <div class="pago-row big"><span style="font-size:11px;font-weight:900;">TOTAL:</span><span style="font-size:11px;font-weight:900;">${fmt(total)}</span></div>
+      <div class="sep"></div>
+
+      <!-- PIE -->
+      <div>CAJERO: ${cajero}</div>
+      <div>VENDEDOR: ${cajero}</div>
+      <div class="sep2"></div>
+      <div class="center" style="font-size:8px; margin-top:4px;">
+        <div>Conserve este ticket para cambios.</div>
+        <div>Plazo: 15 días. Etiquetas originales.</div>
+        <div>¡GRACIAS POR SU COMPRA!</div>
+      </div>
+
       <script>
-        window.onload = function() {
-          window.print();
-          setTimeout(function() { window.close(); }, 500);
-        };
-      </script>
+        window.onload = function() { window.print(); setTimeout(function(){ window.close(); }, 600); };
+      <\/script>
     </body>
     </html>
   `;
@@ -745,6 +706,9 @@ async function bootstrapApp() {
 
 async function saveProduct(event) {
   event.preventDefault();
+  // Aseguramos que stock=0 se envíe como "0" nunca como vacío
+  const stockRaw = $("#productStock").value;
+  const stockVal = stockRaw === "" ? "0" : stockRaw;
   const payload = {
     original_code: $("#originalCode").value,
     codigo: $("#productCode").value,
@@ -752,7 +716,7 @@ async function saveProduct(event) {
     categoria: $("#productCategory").value,
     talla: $("#productSize").value,
     precio: $("#productPrice").value,
-    stock: $("#productStock").value,
+    stock: stockVal,
   };
   const response = await apiCall("save_product", payload);
   showModal("Inventario", response.message, [
@@ -805,27 +769,35 @@ async function deleteSelectedProduct() {
 }
 
 function parseCSV(text) {
+  // Eliminar BOM si existe
+  text = text.replace(/^\uFEFF/, '');
   const lines = text
-    .split("\n")
+    .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => line);
   if (lines.length < 2) return [];
-  const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
+
+  // Detectar separador automáticamente: ; o ,
+  const firstLine = lines[0];
+  const sep = (firstLine.split(';').length > firstLine.split(',').length) ? ';' : ',';
+
+  const headers = firstLine.split(sep).map((h) => h.trim().toLowerCase().replace(/["']/g, ''));
   const rows = [];
   for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(",").map((v) => v.trim());
+    const values = lines[i].split(sep).map((v) => v.trim().replace(/^["']|["']$/g, ''));
     const obj = {};
     headers.forEach((h, index) => {
-      obj[h] = values[index];
+      obj[h] = values[index] !== undefined ? values[index] : '';
     });
-    if (obj.nombre) {
+    // Aceptar fila si tiene nombre o codigo
+    if (obj.nombre || obj.codigo) {
       rows.push({
         codigo: obj.codigo || "",
         nombre: obj.nombre || "",
         categoria: obj.categoria || "",
         talla: obj.talla || "",
-        precio: parseFloat(obj.precio) || 0,
-        stock: parseInt(obj.stock) || 0,
+        precio: parseFloat((obj.precio || '0').replace(/[^0-9.]/g, '')) || 0,
+        stock: parseInt((obj.stock || '0').replace(/[^0-9]/g, '')) || 0,
       });
     }
   }
@@ -835,30 +807,36 @@ function parseCSV(text) {
 async function importCsvFlow() {
   const input = document.createElement("input");
   input.type = "file";
-  input.accept = ".csv";
+  input.accept = ".csv,.txt";
   input.onchange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = async (e) => {
-      const text = e.target.result;
+    reader.onload = async (evt) => {
+      const text = evt.target.result;
       const rows = parseCSV(text);
       if (rows.length === 0) {
         showModal(
-          "Error",
-          "El archivo CSV está vacío o el formato no es válido. Verifica que tenga cabeceras: codigo,nombre,categoria,talla,precio,stock",
+          "Error CSV",
+          `El archivo no contiene filas válidas.\n\nVerifica que tenga cabeceras: codigo, nombre, categoria, talla, precio, stock\nSeparador: coma (,) o punto y coma (;)`,
           [{ label: "Aceptar", kind: "primary-btn" }],
         );
         return;
       }
+      showToast(`Importando ${rows.length} productos...`);
       const response = await apiCall("import_products", rows);
-      showModal("Importación", response.message, [
-        { label: "Aceptar", kind: "primary-btn" },
-      ]);
       await refreshProducts();
       await refreshDashboard();
+      showModal(
+        "✅ Importación completada",
+        `<div style="line-height:1.8;">
+          ${response.message}<br/>
+          <strong>Total procesados:</strong> ${rows.length} filas
+        </div>`,
+        [{ label: "Aceptar", kind: "primary-btn" }],
+      );
     };
-    reader.readAsText(file);
+    reader.readAsText(file, 'UTF-8');
   };
   input.click();
 }
@@ -870,59 +848,84 @@ async function previewSale() {
     ]);
     return;
   }
+
+  // Resetear selección antes de mostrar el modal
+  state.selectedPaymentMethod = "Efectivo";
+  state.canceloAmount = 0;
+
   const preview = await apiCall("get_sale_preview", state.cart);
   const items = preview.data.items || [];
   const total = preview.data.total || 0;
+
+  const chipStyle = (active) => `
+    padding: 10px 16px; border: 2px solid ${active ? 'var(--primary)' : 'var(--line)'}; border-radius: 12px;
+    text-align: center; cursor: pointer; font-weight: 700; font-size: 0.9rem;
+    background: ${active ? 'var(--primary)' : 'transparent'}; color: ${active ? '#fff' : 'var(--text)'};
+    transition: all 0.15s; user-select: none;
+  `;
+
   const body = `
-    <div class="list-card">${items.map((item) => `<div class="list-item"><strong>${item.nombre}</strong><br/>${item.cantidad} x ${money(item.precio)} = ${money(item.subtotal)}</div>`).join("")}</div>
-    <h3 style="margin-top:16px;">Total: ${money(total)}</h3>
-    <div style="margin-top: 18px;">
-      <div style="font-weight: 700; margin-bottom: 10px; font-size: 0.9rem;">Método de pago:</div>
-      <div style="display: flex; gap: 10px; flex-wrap: wrap;" id="paymentMethodGroup">
-        <label style="flex: 1; min-width: 100px;">
-          <input type="radio" name="metodoPago" value="Efectivo" checked style="display:none;" />
-          <div class="payment-chip" data-method="Efectivo" onclick="selectPaymentChip(this)" style="
-            padding: 10px 16px; border: 2px solid var(--primary); border-radius: 12px;
-            text-align: center; cursor: pointer; font-weight: 700; font-size: 0.9rem;
-            background: var(--primary); color: #fff; transition: all 0.15s;
-          ">💵 Efectivo</div>
-        </label>
-        <label style="flex: 1; min-width: 100px;">
-          <input type="radio" name="metodoPago" value="Datáfono" style="display:none;" />
-          <div class="payment-chip" data-method="Datáfono" onclick="selectPaymentChip(this)" style="
-            padding: 10px 16px; border: 2px solid var(--line); border-radius: 12px;
-            text-align: center; cursor: pointer; font-weight: 700; font-size: 0.9rem;
-            background: transparent; color: var(--text); transition: all 0.15s;
-          ">💳 Datáfono</div>
-        </label>
-        <label style="flex: 1; min-width: 100px;">
-          <input type="radio" name="metodoPago" value="Transferencia" style="display:none;" />
-          <div class="payment-chip" data-method="Transferencia" onclick="selectPaymentChip(this)" style="
-            padding: 10px 16px; border: 2px solid var(--line); border-radius: 12px;
-            text-align: center; cursor: pointer; font-weight: 700; font-size: 0.9rem;
-            background: transparent; color: var(--text); transition: all 0.15s;
-          ">📲 Transferencia</div>
-        </label>
+    <div class="list-card" style="max-height:180px; overflow-y:auto; margin-bottom:10px;">
+      ${items.map((item) => `<div class="list-item"><strong>${item.nombre}</strong> &nbsp;<span style="color:var(--muted);">${item.cantidad} x ${money(item.precio)} = ${money(item.subtotal)}</span></div>`).join('')}
+    </div>
+    <div style="display:flex; justify-content:space-between; font-weight:900; font-size:1.15rem; margin:8px 0 16px;">
+      <span>TOTAL A COBRAR:</span><span>${money(total)}</span>
+    </div>
+
+    <!-- Método de pago -->
+    <div style="font-weight:700; margin-bottom:8px; font-size:0.9rem;">Método de pago:</div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;">
+      <div class="payment-chip" data-method="Efectivo" onclick="selectPaymentChip(this)" style="${chipStyle(true)} flex:1; min-width:90px;">💵 Efectivo</div>
+      <div class="payment-chip" data-method="Datáfono" onclick="selectPaymentChip(this)" style="${chipStyle(false)} flex:1; min-width:90px;">💳 Datáfono</div>
+      <div class="payment-chip" data-method="Transferencia" onclick="selectPaymentChip(this)" style="${chipStyle(false)} flex:1; min-width:90px;">📲 Transferencia</div>
+    </div>
+
+    <!-- Campo cancelo (solo si Efectivo) -->
+    <div id="canceloSection" style="margin-bottom:8px;">
+      <div style="font-weight:700; margin-bottom:6px; font-size:0.9rem;">¿Cuánto cancela el cliente? <span style="color:var(--muted);font-weight:400;font-size:0.8rem;">(opcional)</span></div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <input id="canceloInput" type="number" min="0" step="1000" placeholder="Ej: ${Math.ceil(total/1000)*1000}" value=""
+          oninput="updateCambio(${total})"
+          style="flex:1; padding:10px; border:1.5px solid var(--line); border-radius:10px; font-size:1rem; background:var(--surface); color:var(--text);"
+        />
+        <div style="min-width:80px; text-align:right;">
+          <div style="font-size:0.78rem; color:var(--muted);">Cambio:</div>
+          <div id="cambioDisplay" style="font-weight:900; font-size:1.05rem; color:var(--primary);">$0</div>
+        </div>
       </div>
     </div>
   `;
-  showModal("Vista previa de facturación", body, [
-    { label: "Volver a editar", kind: "secondary-btn" },
+
+  showModal("💰 Cobrar venta", body, [
+    { label: "Cancelar", kind: "secondary-btn" },
     {
-      label: "Confirmar e imprimir",
+      label: "✅ Confirmar e imprimir",
       kind: "primary-btn",
+      close: false,
       onClick: async () => {
-        const metodoPago = document.querySelector('input[name="metodoPago"]:checked')?.value || "Efectivo";
+        // Leer valores del DOM ANTES de que hideModal los borre
+        const metodoPago = state.selectedPaymentMethod || "Efectivo";
+        const canceloRaw = document.getElementById('canceloInput')?.value;
+        const cancelo = canceloRaw ? Number(canceloRaw) : total;
+        state.canceloAmount = cancelo;
+        hideModal();
+
         const result = await apiCall("create_sale", {
           cart_items: state.cart,
           metodo_pago: metodoPago,
         });
         if (result.ok && result.data) {
-          const itemsForPrint = state.cart.map(i => ({ ...i, precio: i.precio }));
-          printReceiptDirect(result.data.id_venta, result.data.total, itemsForPrint, metodoPago);
+          const itemsForPrint = state.cart.map(i => ({ ...i }));
+          printReceiptDirect(result.data.id_venta, result.data.total, itemsForPrint, metodoPago, cancelo);
           showModal(
-            "Venta confirmada",
-            `Ticket #${result.data.id_venta} guardado e impreso.\nMétodo: ${metodoPago}`,
+            "✅ Venta confirmada",
+            `<div style="text-align:center;padding:8px 0;">
+              <div style="font-size:1.8rem;">🧾</div>
+              <div style="font-weight:700;margin:6px 0;">Ticket #${result.data.id_venta}</div>
+              <div>Método: <strong>${metodoPago}</strong></div>
+              <div>Total: <strong>${money(result.data.total)}</strong></div>
+              ${cancelo > 0 && metodoPago === 'Efectivo' ? `<div>Cancela: <strong>${money(cancelo)}</strong> · Cambio: <strong>${money(Math.max(0, cancelo - result.data.total))}</strong></div>` : ''}
+            </div>`,
             [{ label: "Aceptar", kind: "primary-btn" }],
           );
         }
@@ -936,21 +939,36 @@ async function previewSale() {
   ]);
 }
 
+// Actualiza el display del cambio dinámicamente
+function updateCambio(total) {
+  const input = document.getElementById('canceloInput');
+  const display = document.getElementById('cambioDisplay');
+  if (!input || !display) return;
+  const cancelo = Number(input.value) || 0;
+  const cambio = Math.max(0, cancelo - total);
+  display.textContent = '$' + Math.round(cambio).toLocaleString('es-CO');
+  display.style.color = cambio >= 0 ? 'var(--primary)' : '#e53e3e';
+}
+
 function selectPaymentChip(el) {
-  // Deselect all chips
+  // Guardar en state (sobrevive al hideModal)
+  state.selectedPaymentMethod = el.dataset.method;
+
+  // Visual: deselect all, select clicked
   document.querySelectorAll('.payment-chip').forEach(chip => {
     chip.style.background = 'transparent';
     chip.style.color = 'var(--text)';
     chip.style.borderColor = 'var(--line)';
   });
-  // Select clicked
   el.style.background = 'var(--primary)';
   el.style.color = '#fff';
   el.style.borderColor = 'var(--primary)';
-  // Mark the radio
-  const method = el.dataset.method;
-  const radio = document.querySelector(`input[name="metodoPago"][value="${method}"]`);
-  if (radio) radio.checked = true;
+
+  // Mostrar/ocultar sección de cancelo según método
+  const canceloSection = document.getElementById('canceloSection');
+  if (canceloSection) {
+    canceloSection.style.display = (state.selectedPaymentMethod === 'Efectivo') ? 'block' : 'none';
+  }
 }
 
 async function loadRecentSalesForReturns() {
