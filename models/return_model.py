@@ -115,20 +115,22 @@ class ReturnModel:
     @staticmethod
     def update_sale_item(id_venta, old_codigo, new_codigo, cantidad, motivo):
         """
-        Reemplaza un producto en la venta por otro:
-        - Devuelve el viejo al stock (cantidad especificada a cambiar)
-        - Descuenta el nuevo del stock
-        - Actualiza o añade detalles_venta con el nuevo código y subtotal,
-          soportando cambios parciales (donde la cantidad original se reduce)
-          y fusionando (merging) si el nuevo producto ya existe en la venta.
-        - Registra en devoluciones el cambio.
-        - Recalcula el total de la venta.
+        Reemplaza un producto en la venta por otro, con soporte de cambios parciales.
+
+        Estrategia de datos:
+        - detalles_venta.cantidad  NUNCA se reduce: preserva la cantidad original
+          comprada para que la UI muestre 'Comprado: N' correctamente.
+        - detalles_venta.subtotal  SÍ se reduce en (cantidad * precio_unit_viejo),
+          de modo que el total de la venta es correcto.
+        - devoluciones             registra cada unidad intercambiada, permitiendo
+          calcular 'Devuelto: X' y 'Restante: N-X' en la UI.
+
         Retorna (True/False, mensaje, new_total)
         """
         conn = get_connection()
         cursor = conn.cursor()
         try:
-            # 1. Obtener info del detalle original
+            # 1. Leer cantidad original y ya-devuelta/intercambiada del producto viejo
             cursor.execute(
                 """
                 SELECT dv.id_detalle, dv.cantidad, dv.subtotal,
@@ -151,7 +153,7 @@ class ReturnModel:
             if cantidad <= 0 or cantidad > restante:
                 return False, f"La cantidad a cambiar ({cantidad}) es inválida. Disponible: {restante}.", None
 
-            # 2. Obtener info del producto nuevo
+            # 2. Verificar producto nuevo
             cursor.execute(
                 "SELECT nombre, precio, stock FROM productos WHERE codigo = ?",
                 (new_codigo,),
@@ -169,93 +171,62 @@ class ReturnModel:
                     None,
                 )
 
-            old_precio = float(old_subtotal) / int(old_cant)
+            old_precio_unit = float(old_subtotal) / int(old_cant)
 
-            # 3. Descontar stock del producto nuevo
+            # 3. Ajustar stocks
+            cursor.execute(
+                "UPDATE productos SET stock = stock + ? WHERE codigo = ?",
+                (cantidad, old_codigo),
+            )
             cursor.execute(
                 "UPDATE productos SET stock = stock - ? WHERE codigo = ?",
                 (cantidad, new_codigo),
             )
 
-            # 4. Reingresar stock del viejo (solo la cantidad cambiada)
+            # 4. Registrar el intercambio en devoluciones para trazabilidad en la UI
+            #    Esto permite mostrar "Devuelto: X" sin reducir detalles_venta.cantidad
             cursor.execute(
-                "UPDATE productos SET stock = stock + ? WHERE codigo = ?",
-                (cantidad, old_codigo),
+                """
+                INSERT INTO devoluciones (id_venta, codigo_producto, cantidad, motivo)
+                VALUES (?, ?, ?, ?)
+                """,
+                (id_venta, old_codigo, cantidad, motivo if motivo else "Cambio de producto"),
             )
 
-            # 5. Registrar en devoluciones la cantidad cambiada (omitido para evitar doble descuento en ventas y restante)
-            pass
-
-            # 6. Verificar si el nuevo producto ya existe en los detalles de la venta para fusionarlo
+            # 5. Reducir solo el subtotal del producto viejo (cantidad queda intacta = "Comprado: N")
+            nuevo_subtotal_viejo = old_precio_unit * (int(old_cant) - cantidad)
             cursor.execute(
-                "SELECT id_detalle, cantidad, subtotal FROM detalles_venta WHERE id_venta = ? AND codigo_producto = ?",
+                "UPDATE detalles_venta SET subtotal = ? WHERE id_detalle = ?",
+                (nuevo_subtotal_viejo, id_detalle),
+            )
+
+            # 6. Insertar o fusionar el nuevo producto en detalles_venta
+            cursor.execute(
+                "SELECT id_detalle FROM detalles_venta WHERE id_venta = ? AND codigo_producto = ?",
                 (id_venta, new_codigo),
             )
-            existing_new_row = cursor.fetchone()
+            existing_new = cursor.fetchone()
 
-            # 7. Actualizar la base de datos según sea un cambio completo o parcial
-            if cantidad == old_cant:
-                if existing_new_row:
-                    new_id_detalle, existing_qty, existing_subtotal = existing_new_row
-                    # Fusionar con el existente
-                    cursor.execute(
-                        """
-                        UPDATE detalles_venta
-                        SET cantidad = cantidad + ?, subtotal = subtotal + ?
-                        WHERE id_detalle = ?
-                        """,
-                        (cantidad, float(new_precio) * cantidad, new_id_detalle),
-                    )
-                    # Eliminar la fila vieja
-                    cursor.execute(
-                        "DELETE FROM detalles_venta WHERE id_detalle = ?",
-                        (id_detalle,),
-                    )
-                else:
-                    # No existe, simplemente actualizar en sitio
-                    cursor.execute(
-                        """
-                        UPDATE detalles_venta
-                        SET codigo_producto = ?, subtotal = ?
-                        WHERE id_detalle = ?
-                        """,
-                        (new_codigo, float(new_precio) * cantidad, id_detalle),
-                    )
-            else:
-                # Cambio parcial: reducir cantidad de la fila original
-                new_old_qty = old_cant - cantidad
-                new_old_subtotal = old_precio * new_old_qty
+            if existing_new:
+                new_id_detalle = existing_new[0]
                 cursor.execute(
                     """
                     UPDATE detalles_venta
-                    SET cantidad = ?, subtotal = ?
+                    SET cantidad = cantidad + ?, subtotal = subtotal + ?
                     WHERE id_detalle = ?
                     """,
-                    (new_old_qty, new_old_subtotal, id_detalle),
+                    (cantidad, float(new_precio) * cantidad, new_id_detalle),
+                )
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO detalles_venta (id_venta, codigo_producto, cantidad, subtotal)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (id_venta, new_codigo, cantidad, float(new_precio) * cantidad),
                 )
 
-                if existing_new_row:
-                    new_id_detalle, existing_qty, existing_subtotal = existing_new_row
-                    # Fusionar con el existente
-                    cursor.execute(
-                        """
-                        UPDATE detalles_venta
-                        SET cantidad = cantidad + ?, subtotal = subtotal + ?
-                        WHERE id_detalle = ?
-                        """,
-                        (cantidad, float(new_precio) * cantidad, new_id_detalle),
-                    )
-                else:
-                    # Insertar nuevo registro
-                    cursor.execute(
-                        """
-                        INSERT INTO detalles_venta (id_venta, codigo_producto, cantidad, subtotal)
-                        VALUES (?, ?, ?, ?)
-                        """,
-                        (id_venta, new_codigo, cantidad, float(new_precio) * cantidad),
-                    )
-
-            # 8. Recalcular total de la venta
+            # 7. Recalcular total de la venta
             cursor.execute(
                 "SELECT COALESCE(SUM(subtotal), 0) FROM detalles_venta WHERE id_venta = ?",
                 (id_venta,),
@@ -274,3 +245,4 @@ class ReturnModel:
             return False, str(e), None
         finally:
             conn.close()
+
