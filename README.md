@@ -3,7 +3,7 @@
 Sistema de Punto de Venta para **Tienda Aimara** — boutique de moda.  
 Construido con Python + interfaz web local (HTML/CSS/JS) servida por un servidor HTTP embebido.
 
-> **Versión actual: v1.7.5**
+> **Versión actual: v1.8.0**
 
 ---
 
@@ -69,6 +69,11 @@ Requiere Python 3.9+ y PyInstaller instalado. El ejecutable queda en `dist/Aimar
 ---
 
 ## 📋 Historial de versiones
+
+### v1.8.0 — 2026-05-28
+- ✅ **Devoluciones/Cambios Parciales** — Se rediseñó el flujo de "Actualizar Factura" en el módulo de devoluciones para permitir el cambio de una cantidad seleccionada (no obligatoriamente todo el stock comprado) de un producto.
+- ✅ **Barra de desplazamiento en inventario** — Agregada barra de desplazamiento vertical interna en la tabla de productos para una mejor experiencia visual con catálogos grandes.
+- ✅ **NIT de tienda oficial** — Actualizado el NIT en los recibos a la identificación fiscal real `700378458`.
 
 ### v1.7.5 — 2026-05-27
 - ✅ **Borrar Base de Datos** — Añadido panel de administración (visible solo para usuarios con rol `admin`) con opción de borrado rápido de la base de datos (ventas, productos, devoluciones) con doble confirmación de seguridad.

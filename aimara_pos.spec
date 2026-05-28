@@ -97,7 +97,7 @@ if IS_MAC:
         info_plist={
             "CFBundleName":             "Aimara POS",
             "CFBundleDisplayName":      "Aimara POS",
-            "CFBundleShortVersionString": "1.7.5",
+            "CFBundleShortVersionString": "1.8.0",
             "NSHighResolutionCapable":  True,
             "LSMinimumSystemVersion":   "12.0",
         },

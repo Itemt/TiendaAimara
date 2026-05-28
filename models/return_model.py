@@ -113,14 +113,16 @@ class ReturnModel:
         return row
 
     @staticmethod
-    def update_sale_item(id_venta, old_codigo, new_codigo, motivo):
+    def update_sale_item(id_venta, old_codigo, new_codigo, cantidad, motivo):
         """
         Reemplaza un producto en la venta por otro:
-        - Devuelve el viejo al stock (cantidad aún no devuelta)
+        - Devuelve el viejo al stock (cantidad especificada a cambiar)
         - Descuenta el nuevo del stock
-        - Actualiza detalles_venta con el nuevo código y subtotal
-        - Registra en devoluciones si había cantidad pendiente de devolver
-        - Recalcula el total de la venta
+        - Actualiza o añade detalles_venta con el nuevo código y subtotal,
+          soportando cambios parciales (donde la cantidad original se reduce)
+          y fusionando (merging) si el nuevo producto ya existe en la venta.
+        - Registra en devoluciones el cambio.
+        - Recalcula el total de la venta.
         Retorna (True/False, mensaje, new_total)
         """
         conn = get_connection()
@@ -146,6 +148,9 @@ class ReturnModel:
             id_detalle, old_cant, old_subtotal, ya_devuelto = old_row
             restante = int(old_cant) - int(ya_devuelto)
 
+            if cantidad <= 0 or cantidad > restante:
+                return False, f"La cantidad a cambiar ({cantidad}) es inválida. Disponible: {restante}.", None
+
             # 2. Obtener info del producto nuevo
             cursor.execute(
                 "SELECT nombre, precio, stock FROM productos WHERE codigo = ?",
@@ -157,47 +162,100 @@ class ReturnModel:
 
             new_nombre, new_precio, new_stock = new_prod
 
-            if int(new_stock) < int(old_cant):
+            if int(new_stock) < cantidad:
                 return (
                     False,
-                    f"Stock insuficiente para '{new_nombre}'.\nDisponible: {new_stock}, requerido: {old_cant}.",
+                    f"Stock insuficiente para '{new_nombre}'.\nDisponible: {new_stock}, requerido: {cantidad}.",
                     None,
                 )
 
-            new_subtotal = float(new_precio) * int(old_cant)
+            old_precio = float(old_subtotal) / int(old_cant)
 
-            # 3. Reingresar stock del viejo (solo la cantidad restante no devuelta aún)
-            if restante > 0:
-                cursor.execute(
-                    "UPDATE productos SET stock = stock + ? WHERE codigo = ?",
-                    (restante, old_codigo),
-                )
-                # Registrar en devoluciones la cantidad que se reingresa ahora
-                cursor.execute(
-                    """
-                    INSERT INTO devoluciones (id_venta, codigo_producto, cantidad, motivo)
-                    VALUES (?, ?, ?, ?)
-                    """,
-                    (id_venta, old_codigo, restante, motivo if motivo else "Cambio de producto"),
-                )
-
-            # 4. Descontar stock del producto nuevo
+            # 3. Descontar stock del producto nuevo
             cursor.execute(
                 "UPDATE productos SET stock = stock - ? WHERE codigo = ?",
-                (old_cant, new_codigo),
+                (cantidad, new_codigo),
             )
 
-            # 5. Actualizar el detalle de la venta
+            # 4. Reingresar stock del viejo (solo la cantidad cambiada)
             cursor.execute(
-                """
-                UPDATE detalles_venta
-                SET codigo_producto = ?, subtotal = ?
-                WHERE id_detalle = ?
-                """,
-                (new_codigo, new_subtotal, id_detalle),
+                "UPDATE productos SET stock = stock + ? WHERE codigo = ?",
+                (cantidad, old_codigo),
             )
 
-            # 6. Recalcular total de la venta
+            # 5. Registrar en devoluciones la cantidad cambiada (omitido para evitar doble descuento en ventas y restante)
+            pass
+
+            # 6. Verificar si el nuevo producto ya existe en los detalles de la venta para fusionarlo
+            cursor.execute(
+                "SELECT id_detalle, cantidad, subtotal FROM detalles_venta WHERE id_venta = ? AND codigo_producto = ?",
+                (id_venta, new_codigo),
+            )
+            existing_new_row = cursor.fetchone()
+
+            # 7. Actualizar la base de datos según sea un cambio completo o parcial
+            if cantidad == old_cant:
+                if existing_new_row:
+                    new_id_detalle, existing_qty, existing_subtotal = existing_new_row
+                    # Fusionar con el existente
+                    cursor.execute(
+                        """
+                        UPDATE detalles_venta
+                        SET cantidad = cantidad + ?, subtotal = subtotal + ?
+                        WHERE id_detalle = ?
+                        """,
+                        (cantidad, float(new_precio) * cantidad, new_id_detalle),
+                    )
+                    # Eliminar la fila vieja
+                    cursor.execute(
+                        "DELETE FROM detalles_venta WHERE id_detalle = ?",
+                        (id_detalle,),
+                    )
+                else:
+                    # No existe, simplemente actualizar en sitio
+                    cursor.execute(
+                        """
+                        UPDATE detalles_venta
+                        SET codigo_producto = ?, subtotal = ?
+                        WHERE id_detalle = ?
+                        """,
+                        (new_codigo, float(new_precio) * cantidad, id_detalle),
+                    )
+            else:
+                # Cambio parcial: reducir cantidad de la fila original
+                new_old_qty = old_cant - cantidad
+                new_old_subtotal = old_precio * new_old_qty
+                cursor.execute(
+                    """
+                    UPDATE detalles_venta
+                    SET cantidad = ?, subtotal = ?
+                    WHERE id_detalle = ?
+                    """,
+                    (new_old_qty, new_old_subtotal, id_detalle),
+                )
+
+                if existing_new_row:
+                    new_id_detalle, existing_qty, existing_subtotal = existing_new_row
+                    # Fusionar con el existente
+                    cursor.execute(
+                        """
+                        UPDATE detalles_venta
+                        SET cantidad = cantidad + ?, subtotal = subtotal + ?
+                        WHERE id_detalle = ?
+                        """,
+                        (cantidad, float(new_precio) * cantidad, new_id_detalle),
+                    )
+                else:
+                    # Insertar nuevo registro
+                    cursor.execute(
+                        """
+                        INSERT INTO detalles_venta (id_venta, codigo_producto, cantidad, subtotal)
+                        VALUES (?, ?, ?, ?)
+                        """,
+                        (id_venta, new_codigo, cantidad, float(new_precio) * cantidad),
+                    )
+
+            # 8. Recalcular total de la venta
             cursor.execute(
                 "SELECT COALESCE(SUM(subtotal), 0) FROM detalles_venta WHERE id_venta = ?",
                 (id_venta,),

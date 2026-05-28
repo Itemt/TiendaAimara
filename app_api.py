@@ -571,6 +571,7 @@ class AimaraAPI:
             id_venta = int(payload.get("id_venta", 0))
             old_codigo = str(payload.get("old_codigo", "")).strip()
             new_codigo = str(payload.get("new_codigo", "")).strip()
+            cantidad = int(payload.get("cantidad", 1))
             motivo = str(payload.get("motivo", "Cambio de producto")).strip()
         else:
             return self._response(False, "Payload inválido.")
@@ -582,7 +583,7 @@ class AimaraAPI:
             return self._response(False, "El producto nuevo debe ser diferente al actual.")
 
         success, message, new_total = ReturnModel.update_sale_item(
-            id_venta, old_codigo, new_codigo, motivo
+            id_venta, old_codigo, new_codigo, cantidad, motivo
         )
         if not success:
             return self._response(False, message)

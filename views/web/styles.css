@@ -348,6 +348,10 @@ input:focus {
     background: rgba(255, 255, 255, 0.48);
 }
 
+.inventory-table {
+    max-height: 550px;
+}
+
 .data-table {
     width: 100%;
     border-collapse: collapse;

@@ -106,7 +106,7 @@ function printReceiptDirect(saleId, total, items, metodoPago, cancelo) {
       <!-- ENCABEZADO -->
       <div class="center">
         <div class="title">AIMARA MODA</div>
-        <div>NIT: 1065.890.123-1</div>
+        <div>NIT: 700378458</div>
         <div>Calle 50 #1-7 Barrancabermeja</div>
         <div>Tel: +57 311 837 1495</div>
         <div>IG: @Aimara_ModaFashion09</div>
@@ -1162,10 +1162,10 @@ async function openUpdateInvoiceModal() {
         margin-bottom: 8px;
         transition: border-color 0.2s, background 0.2s;
       " onmouseover="this.style.borderColor='var(--primary)'" onmouseout="if(!this.querySelector('input').checked)this.style.borderColor='var(--line)'">
-        <input type="radio" name="swapProduct" value="${row.codigo}" style="accent-color: var(--primary);" />
+        <input type="radio" name="swapProduct" value="${row.codigo}" data-max-qty="${row.cantidad_restante}" style="accent-color: var(--primary);" />
         <div>
           <div style="font-weight: 700; font-size: 0.95rem;">${row.nombre}</div>
-          <div style="font-size: 0.8rem; color: var(--muted);">${row.codigo} · ${money(row.precio)} · ${row.cantidad} unid.</div>
+          <div style="font-size: 0.8rem; color: var(--muted);">${row.codigo} · ${money(row.precio)} · ${row.cantidad_restante} restante(s) de ${row.cantidad} comprada(s)</div>
         </div>
       </label>
     `
@@ -1179,6 +1179,16 @@ async function openUpdateInvoiceModal() {
         <div id="swapProductList" style="max-height: 240px; overflow-y: auto; padding-right: 4px;">
           ${productOptions}
         </div>
+      </div>
+      <div id="swapQtyContainer" style="display: none;">
+        <div style="font-weight: 700; margin-bottom: 8px; font-size: 0.95rem;">Cantidad a cambiar:</div>
+        <input
+          id="swapQuantity"
+          type="number"
+          min="1"
+          value="1"
+          style="width: 100%; padding: 10px 14px; border: 1.5px solid var(--line); border-radius: 10px; font-size: 1rem; background: var(--surface); color: var(--text); box-sizing: border-box;"
+        />
       </div>
       <div>
         <div style="font-weight: 700; margin-bottom: 8px; font-size: 0.95rem;">2. Código del nuevo producto (escanear o escribir):</div>
@@ -1221,8 +1231,17 @@ async function openUpdateInvoiceModal() {
             return;
           }
           const oldCodigo = selectedRadio.value;
+          const swapQty = Number($("#swapQuantity").value || 1);
+          const maxQty = Number(selectedRadio.getAttribute('data-max-qty') || 1);
           const newCodigo = $("#newProductCode").value.trim().replace(/`/g, "-");
           const motivo = $("#swapMotivo").value.trim() || "Cambio de producto";
+
+          if (swapQty <= 0 || swapQty > maxQty || !Number.isInteger(swapQty)) {
+            showModal("Actualizar Factura", `Cantidad a cambiar inválida. Debe ser entre 1 y ${maxQty}.`, [
+              { label: "Aceptar", kind: "primary-btn" },
+            ]);
+            return;
+          }
 
           if (!newCodigo) {
             showModal("Actualizar Factura", "Debes ingresar el código del nuevo producto.", [
@@ -1261,9 +1280,9 @@ async function openUpdateInvoiceModal() {
               <div style="line-height: 1.7; font-size: 0.95rem;">
                 <div><strong>Ticket:</strong> #${ticketId}</div>
                 <div style="margin-top: 10px;"><strong>❌ Sale del stock:</strong></div>
-                <div style="padding: 8px 14px; background: var(--surface-2); border-radius: 8px; margin: 4px 0;">${oldNombre} <span style="color:var(--muted)">(${oldCodigo})</span></div>
+                <div style="padding: 8px 14px; background: var(--surface-2); border-radius: 8px; margin: 4px 0;">${swapQty} unidad(es) de ${oldNombre} <span style="color:var(--muted)">(${oldCodigo})</span></div>
                 <div style="margin-top: 10px;"><strong>✅ Entra al ticket:</strong></div>
-                <div style="padding: 8px 14px; background: var(--surface-2); border-radius: 8px; margin: 4px 0;">${newProduct.nombre} <span style="color:var(--muted)">(${newCodigo})</span> · ${money(newProduct.precio)}</div>
+                <div style="padding: 8px 14px; background: var(--surface-2); border-radius: 8px; margin: 4px 0;">${swapQty} unidad(es) de ${newProduct.nombre} <span style="color:var(--muted)">(${newCodigo})</span> · ${money(newProduct.precio)}</div>
                 <div style="margin-top: 10px; color: var(--muted); font-size: 0.87rem;">Motivo: ${motivo}</div>
               </div>
             `,
@@ -1281,6 +1300,7 @@ async function openUpdateInvoiceModal() {
                     id_venta: ticketId,
                     old_codigo: oldCodigo,
                     new_codigo: newCodigo,
+                    cantidad: swapQty,
                     motivo: motivo,
                   });
 
@@ -1321,6 +1341,21 @@ async function openUpdateInvoiceModal() {
       },
     ]
   );
+
+  // Vincular cambio en selección de producto para ajustar cantidad máxima
+  const radios = document.querySelectorAll('input[name="swapProduct"]');
+  const qtyContainer = document.getElementById('swapQtyContainer');
+  const qtyInput = document.getElementById('swapQuantity');
+  radios.forEach((radio) => {
+    radio.addEventListener('change', () => {
+      const maxQty = Number(radio.getAttribute('data-max-qty') || 1);
+      if (qtyContainer && qtyInput) {
+        qtyContainer.style.display = 'block';
+        qtyInput.max = maxQty;
+        qtyInput.value = 1;
+      }
+    });
+  });
 }
 
 async function reprintSelectedSale() {
