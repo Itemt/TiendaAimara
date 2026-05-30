@@ -209,7 +209,7 @@ function printReceiptDirect(saleId, total, items, metodoPago, cancelo, clienteDa
 
 
 // Imprime la factura actualizada (cambio de producto) mostrando diferencia
-function printUpdatedReceipt(saleId, newTotal, items, originalTotal) {
+function printUpdatedReceipt(saleId, newTotal, items, originalTotal, clienteData) {
   const fmt = (value) => '$' + Math.round(Number(value || 0)).toLocaleString('es-CO');
   const diff = originalTotal ? (newTotal - originalTotal) : 0;
   let diffMsg = '';
@@ -230,7 +230,7 @@ function printUpdatedReceipt(saleId, newTotal, items, originalTotal) {
       </div>`;
     }
   }
-  printReceiptDirect(saleId, newTotal, items, null, null, null, diffMsg);
+  printReceiptDirect(saleId, newTotal, items, null, null, clienteData || null, diffMsg);
 }
 
 async function printThermalStickersDirect(products) {
@@ -1013,6 +1013,9 @@ async function previewSale() {
         const result = await apiCall("create_sale", {
           cart_items: state.cart,
           metodo_pago: metodoPago,
+          cliente_nombre: clienteData ? (clienteData.nombre || '') : '',
+          cliente_cedula: clienteData ? (clienteData.cedula || '') : '',
+          cliente_celular: clienteData ? (clienteData.celular || '') : '',
         });
         if (result.ok && result.data) {
           const itemsForPrint = state.cart.map(i => ({ ...i }));
@@ -1427,7 +1430,8 @@ async function openUpdateInvoiceModal() {
                         // Imprimir factura actualizada con los detalles necesarios
                         if (result.data?.new_total) {
                           const detRes = await apiCall("get_sale_details", { id_venta: ticketId });
-                          printUpdatedReceipt(ticketId, result.data.new_total, detRes.data || [], result.data.original_total);
+                          const clienteData = detRes.cliente || null;
+                          printUpdatedReceipt(ticketId, result.data.new_total, detRes.data || [], result.data.original_total, clienteData);
                         }
                       } catch (err) {
                         errors.push(err.message);
@@ -1636,7 +1640,13 @@ async function openClassicSwapModal(ticketId) {
 
                   const updatedItems = result.data.receipt_items || [];
                   const newTotal = result.data.new_total || 0;
-                  printUpdatedReceipt(ticketId, newTotal, updatedItems, result.data.original_total);
+                  // Obtener datos del cliente para la factura actualizada
+                  let clienteParaFactura = null;
+                  try {
+                    const detRes = await apiCall("get_sale_details", { id_venta: ticketId });
+                    clienteParaFactura = detRes.cliente || null;
+                  } catch(e) {}
+                  printUpdatedReceipt(ticketId, newTotal, updatedItems, result.data.original_total, clienteParaFactura);
 
                   const diff = result.data.diferencia || 0;
                   const balanceMsg = diff > 0 
@@ -1704,8 +1714,9 @@ async function reprintSelectedSale() {
       id_venta: state.selectedHistorySale,
     });
     const items = detailsResponse.data || [];
+    const clienteData = detailsResponse.cliente || null;
     const total = items.reduce((sum, item) => sum + Number(item.subtotal || 0), 0);
-    printReceiptDirect(state.selectedHistorySale, total, items);
+    printReceiptDirect(state.selectedHistorySale, total, items, null, null, clienteData);
     showModal("Reimpresión", `Factura #${state.selectedHistorySale} enviada a impresión directa.`, [
       { label: "Aceptar", kind: "primary-btn" },
     ]);

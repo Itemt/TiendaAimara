@@ -185,8 +185,14 @@ class AimaraAPI:
             return protected
 
         metodo_pago = "Efectivo"
+        cliente_nombre = None
+        cliente_cedula = None
+        cliente_celular = None
         if isinstance(cart_items, dict):
             metodo_pago = str(cart_items.get("metodo_pago", "Efectivo")).strip() or "Efectivo"
+            cliente_nombre = str(cart_items.get("cliente_nombre", "") or "").strip() or None
+            cliente_cedula = str(cart_items.get("cliente_cedula", "") or "").strip() or None
+            cliente_celular = str(cart_items.get("cliente_celular", "") or "").strip() or None
             cart_items = cart_items.get("cart_items", [])
 
         METODOS_VALIDOS = {"Efectivo", "Datáfono", "Transferencia"}
@@ -215,7 +221,7 @@ class AimaraAPI:
             )
 
         total = sum(item["subtotal"] for item in prepared)
-        success, result = SaleModel.create_sale(prepared, total, metodo_pago)
+        success, result = SaleModel.create_sale(prepared, total, metodo_pago, cliente_nombre, cliente_cedula, cliente_celular)
         if not success:
             return self._response(False, result)
 
@@ -269,7 +275,8 @@ class AimaraAPI:
         details = SaleModel.get_sale_details(int(id_venta))
         if not details:
             return self._response(False, "No se encontraron detalles para esa venta.")
-        return self._response(True, data=details)
+        cliente = SaleModel.get_client_data(int(id_venta))
+        return {"ok": True, "message": "", "data": details, "cliente": cliente}
 
     def replace_sale(self, id_venta, cart_items=None):
         protected = self._require_login()

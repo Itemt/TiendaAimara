@@ -215,6 +215,23 @@ class ReturnModel:
                 return False, f"El producto nuevo (código: {new_codigo}) no existe en el inventario.", None, None, None
 
             new_nombre, new_precio, new_stock = new_prod
+
+            # Obtener precio unitario del producto viejo para validar
+            cursor.execute(
+                "SELECT subtotal, cantidad FROM detalles_venta WHERE id_venta = ? AND codigo_producto = ?",
+                (id_venta, old_codigo),
+            )
+            old_dv_price = cursor.fetchone()
+            old_precio_unit = (float(old_dv_price[0]) / int(old_dv_price[1])) if old_dv_price and int(old_dv_price[1]) > 0 else 0
+
+            if float(new_precio) < old_precio_unit:
+                return (
+                    False,
+                    f"El precio de '{new_nombre}' (${int(new_precio):,}) es menor al de la prenda original (${int(old_precio_unit):,}).\n"
+                    f"El cliente debe cambiar por una prenda del mismo valor o de mayor valor.",
+                    None, None, None,
+                )
+
             if int(new_stock) < cantidad:
                 return (
                     False,
@@ -382,6 +399,16 @@ class ReturnModel:
                 return False, f"El producto nuevo (código: {new_codigo}) no existe en el inventario.", None, None, None
 
             new_nombre, new_precio, new_stock = new_prod
+            old_precio_unit = float(old_subtotal) / int(old_cant)
+
+            # Validar que el precio del nuevo producto >= precio unitario del producto viejo
+            if float(new_precio) < old_precio_unit:
+                return (
+                    False,
+                    f"El precio de '{new_nombre}' (${int(new_precio):,}) es menor al de la prenda original (${int(old_precio_unit):,}).\n"
+                    f"El cliente debe cambiar por una prenda del mismo valor o de mayor valor.",
+                    None, None, None,
+                )
 
             if int(new_stock) < cantidad:
                 return (
@@ -391,8 +418,6 @@ class ReturnModel:
                     None,
                     None,
                 )
-
-            old_precio_unit = float(old_subtotal) / int(old_cant)
 
             # 3. Ajustar stocks
             cursor.execute(

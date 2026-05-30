@@ -46,7 +46,10 @@ def init_db():
         id_venta INTEGER PRIMARY KEY AUTOINCREMENT,
         fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
         total REAL NOT NULL,
-        metodo_pago TEXT NOT NULL DEFAULT 'Efectivo'
+        metodo_pago TEXT NOT NULL DEFAULT 'Efectivo',
+        cliente_nombre TEXT DEFAULT NULL,
+        cliente_cedula TEXT DEFAULT NULL,
+        cliente_celular TEXT DEFAULT NULL
     )
     """)
 
@@ -115,6 +118,9 @@ def init_db():
     for migration in [
         "ALTER TABLE ventas ADD COLUMN metodo_pago TEXT NOT NULL DEFAULT 'Efectivo'",
         "ALTER TABLE devoluciones ADD COLUMN estado TEXT DEFAULT NULL",
+        "ALTER TABLE ventas ADD COLUMN cliente_nombre TEXT DEFAULT NULL",
+        "ALTER TABLE ventas ADD COLUMN cliente_cedula TEXT DEFAULT NULL",
+        "ALTER TABLE ventas ADD COLUMN cliente_celular TEXT DEFAULT NULL",
     ]:
         try:
             cursor.execute(migration)
