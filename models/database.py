@@ -46,9 +46,26 @@ def init_db():
         id_venta INTEGER PRIMARY KEY AUTOINCREMENT,
         fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
         total REAL NOT NULL,
-        metodo_pago TEXT NOT NULL DEFAULT 'Efectivo'
+        metodo_pago TEXT NOT NULL DEFAULT 'Efectivo',
+        cliente_nombre TEXT,
+        cliente_documento TEXT,
+        cliente_telefono TEXT
     )
     """)
+
+    # --- INICIO DE MIGRACIONES AUTOMÁTICAS ---
+    # Verificar y agregar columnas a tablas existentes si faltan
+    cursor.execute("PRAGMA table_info(ventas)")
+    columns = [info[1] for info in cursor.fetchall()]
+    if "metodo_pago" not in columns:
+        cursor.execute("ALTER TABLE ventas ADD COLUMN metodo_pago TEXT DEFAULT 'Efectivo'")
+    if "cliente_nombre" not in columns:
+        cursor.execute("ALTER TABLE ventas ADD COLUMN cliente_nombre TEXT")
+    if "cliente_documento" not in columns:
+        cursor.execute("ALTER TABLE ventas ADD COLUMN cliente_documento TEXT")
+    if "cliente_telefono" not in columns:
+        cursor.execute("ALTER TABLE ventas ADD COLUMN cliente_telefono TEXT")
+    # --- FIN DE MIGRACIONES AUTOMÁTICAS ---
 
 
     # Tabla Detalles de Venta

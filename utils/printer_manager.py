@@ -21,6 +21,12 @@ class PrinterManager:
         receipt_text = "      TIENDA AIMARA      \n"
         receipt_text += "=========================\n"
         receipt_text += f"Ticket #: {sale_data['id_venta']}\n"
+        if sale_data.get('cliente_nombre'):
+            receipt_text += f"Cliente: {sale_data['cliente_nombre']}\n"
+            if sale_data.get('cliente_documento'):
+                receipt_text += f"Doc: {sale_data['cliente_documento']}\n"
+            if sale_data.get('cliente_telefono'):
+                receipt_text += f"Tel: {sale_data['cliente_telefono']}\n"
         receipt_text += "=========================\n"
         for p in products_list:
             receipt_text += f"{p['nombre']} (x{p['cantidad']}) - ${p['subtotal']}\n"
@@ -217,8 +223,11 @@ class PrinterManager:
         Path(output_filename).parent.mkdir(parents=True, exist_ok=True)
 
         LABEL_W = 58 * mm
-        # Altura dinámica: base 70mm + 12mm por producto
-        LABEL_H = (70 + len(products_list) * 12) * mm
+        # Altura dinámica: base 70mm + 12mm por producto + espacio para cliente
+        base_h = 70
+        if sale_data.get('cliente_nombre'):
+            base_h += 15
+        LABEL_H = (base_h + len(products_list) * 12) * mm
 
         c = canvas.Canvas(output_filename, pagesize=(LABEL_W, LABEL_H))
         
@@ -246,6 +255,18 @@ class PrinterManager:
         metodo = sale_data.get('metodo_pago', 'Efectivo') or 'Efectivo'
         c.setFont("Helvetica-Bold", 7.5)
         c.drawString(margin, y, f"Pago: {metodo}")
+        
+        # Datos del cliente si existen
+        if sale_data.get('cliente_nombre'):
+            y -= 4 * mm
+            c.setFont("Helvetica", 7.5)
+            c.drawString(margin, y, f"Cliente: {sale_data['cliente_nombre']}")
+            if sale_data.get('cliente_documento'):
+                y -= 3.5 * mm
+                c.drawString(margin, y, f"Doc: {sale_data['cliente_documento']}")
+            if sale_data.get('cliente_telefono'):
+                y -= 3.5 * mm
+                c.drawString(margin, y, f"Tel: {sale_data['cliente_telefono']}")
 
         y -= 3 * mm
         c.setLineWidth(0.5)

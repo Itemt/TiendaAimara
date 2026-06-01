@@ -185,8 +185,15 @@ class AimaraAPI:
             return protected
 
         metodo_pago = "Efectivo"
+        cliente_nombre = ""
+        cliente_documento = ""
+        cliente_telefono = ""
+        
         if isinstance(cart_items, dict):
             metodo_pago = str(cart_items.get("metodo_pago", "Efectivo")).strip() or "Efectivo"
+            cliente_nombre = str(cart_items.get("cliente_nombre", "")).strip()
+            cliente_documento = str(cart_items.get("cliente_documento", "")).strip()
+            cliente_telefono = str(cart_items.get("cliente_telefono", "")).strip()
             cart_items = cart_items.get("cart_items", [])
 
         METODOS_VALIDOS = {"Efectivo", "Datáfono", "Transferencia"}
@@ -215,7 +222,9 @@ class AimaraAPI:
             )
 
         total = sum(item["subtotal"] for item in prepared)
-        success, result = SaleModel.create_sale(prepared, total, metodo_pago)
+        success, result = SaleModel.create_sale(
+            prepared, total, metodo_pago, cliente_nombre, cliente_documento, cliente_telefono
+        )
         if not success:
             return self._response(False, result)
 
@@ -230,14 +239,21 @@ class AimaraAPI:
                     "subtotal": item["subtotal"],
                 }
             )
-        PrinterManager.print_receipt(
-            {"id_venta": ticket_id, "total": total, "metodo_pago": metodo_pago}, receipt_products
-        )
+            
+        sale_data = {
+            "id_venta": ticket_id,
+            "total": total,
+            "metodo_pago": metodo_pago,
+            "cliente_nombre": cliente_nombre,
+            "cliente_documento": cliente_documento,
+            "cliente_telefono": cliente_telefono
+        }
+        
+        PrinterManager.print_receipt(sale_data, receipt_products)
         output_dir = self._get_web_output_dir()
         output_filename = str(output_dir / "receipt.pdf")
-        PrinterManager.generate_receipt_pdf(
-            {"id_venta": ticket_id, "total": total, "metodo_pago": metodo_pago}, receipt_products, output_filename
-        )
+        PrinterManager.generate_receipt_pdf(sale_data, receipt_products, output_filename)
+        
         low_stock_hits = [
             product
             for product in ProductModel.list_products()
@@ -250,6 +266,7 @@ class AimaraAPI:
                 "id_venta": ticket_id,
                 "total": total,
                 "metodo_pago": metodo_pago,
+                "cliente_nombre": cliente_nombre,
                 "low_stock_hits": low_stock_hits,
                 "output": "/receipt.pdf",
             },
@@ -270,6 +287,17 @@ class AimaraAPI:
         if not details:
             return self._response(False, "No se encontraron detalles para esa venta.")
         return self._response(True, data=details)
+        
+    def get_sale(self, id_venta):
+        protected = self._require_login()
+        if protected:
+            return protected
+        if isinstance(id_venta, dict):
+            id_venta = id_venta.get("id_venta")
+        sale_info = SaleModel.get_sale(int(id_venta))
+        if not sale_info:
+            return self._response(False, "Venta no encontrada.")
+        return self._response(True, data=sale_info)
 
     def replace_sale(self, id_venta, cart_items=None):
         protected = self._require_login()
@@ -623,9 +651,9 @@ class AimaraAPI:
 
     def update_sale_item(self, payload):
         """
-        Reemplaza un producto en una venta existente por otro:
+        Reemplaza un producto en una venta existente por otro(s):
         - Devuelve el viejo al stock
-        - Descuenta el nuevo del stock
+        - Descuenta el(los) nuevo(s) del stock
         - Actualiza detalles_venta
         - Recalcula el total de la venta
         - Regenera el PDF de la factura actualizada
@@ -638,25 +666,35 @@ class AimaraAPI:
             id_venta = int(payload.get("id_venta", 0))
             old_codigo = str(payload.get("old_codigo", "")).strip()
             new_codigo = str(payload.get("new_codigo", "")).strip()
+            new_items = payload.get("new_items", [])
             cantidad = int(payload.get("cantidad", 1))
             motivo = str(payload.get("motivo", "Cambio de producto")).strip()
         else:
             return self._response(False, "Payload inválido.")
 
-        if not id_venta or not old_codigo or not new_codigo:
-            return self._response(False, "id_venta, old_codigo y new_codigo son obligatorios.")
+        if not new_items and new_codigo:
+            new_items = [{"codigo": new_codigo, "cantidad": cantidad}]
 
-        if old_codigo == new_codigo:
-            return self._response(False, "El producto nuevo debe ser diferente al actual.")
+        if not id_venta or not old_codigo or not new_items:
+            return self._response(False, "id_venta, old_codigo y new_items son obligatorios.")
+
+        if any(item.get("codigo") == old_codigo for item in new_items):
+            return self._response(False, "Los productos nuevos deben ser diferentes al actual.")
 
         success, message, new_total = ReturnModel.update_sale_item(
-            id_venta, old_codigo, new_codigo, cantidad, motivo
+            id_venta, old_codigo, new_items, cantidad, motivo
         )
         if not success:
             return self._response(False, message)
 
         # Regenerar el PDF de factura con los datos actualizados
         try:
+            sale_info = SaleModel.get_sale(id_venta)
+            if not sale_info:
+                sale_info = {"id_venta": id_venta, "total": new_total}
+            else:
+                sale_info["total"] = new_total
+                
             details = SaleModel.get_sale_details(id_venta)
             receipt_products = [
                 {
@@ -669,7 +707,7 @@ class AimaraAPI:
             output_dir = self._get_web_output_dir()
             output_filename = str(output_dir / "receipt.pdf")
             PrinterManager.generate_receipt_pdf(
-                {"id_venta": id_venta, "total": new_total}, receipt_products, output_filename
+                sale_info, receipt_products, output_filename
             )
         except Exception:
             pass  # No bloquear si falla la regeneración del PDF
@@ -697,9 +735,15 @@ class AimaraAPI:
         protected = self._require_login()
         if protected:
             return protected
+            
+        sale_info = SaleModel.get_sale(int(id_venta))
+        if not sale_info:
+            return self._response(False, "La venta no existe.")
+            
         details = SaleModel.get_sale_details(int(id_venta))
         if not details:
-            return self._response(False, "La venta no existe.")
+            return self._response(False, "La venta no tiene detalles.")
+            
         receipt_products = [
             {
                 "nombre": item["nombre"],
@@ -708,19 +752,16 @@ class AimaraAPI:
             }
             for item in details
         ]
-        total = sum(item["subtotal"] for item in receipt_products)
-        PrinterManager.print_receipt(
-            {"id_venta": int(id_venta), "total": total}, receipt_products
-        )
+        
+        PrinterManager.print_receipt(sale_info, receipt_products)
         output_dir = self._get_web_output_dir()
         output_filename = str(output_dir / "receipt.pdf")
-        PrinterManager.generate_receipt_pdf(
-            {"id_venta": int(id_venta), "total": total}, receipt_products, output_filename
-        )
+        PrinterManager.generate_receipt_pdf(sale_info, receipt_products, output_filename)
+        
         return self._response(
             True,
             f"Factura #{id_venta} generada.",
-            {"id_venta": int(id_venta), "total": total, "output": "/receipt.pdf"},
+            {"id_venta": int(id_venta), "total": sale_info["total"], "output": "/receipt.pdf"},
         )
 
     def get_users(self):

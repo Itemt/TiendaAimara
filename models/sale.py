@@ -19,7 +19,7 @@ class SaleModel:
         ]
 
     @staticmethod
-    def create_sale(cart_items, total, metodo_pago="Efectivo"):
+    def create_sale(cart_items, total, metodo_pago="Efectivo", cliente_nombre="", cliente_documento="", cliente_telefono=""):
         """
         cart_items: list of dicts {"codigo", "cantidad", "subtotal"}
         metodo_pago: 'Efectivo' | 'Dataphone' | 'Transferencia'
@@ -31,8 +31,8 @@ class SaleModel:
         try:
             # 1. Insertar Venta
             cursor.execute(
-                "INSERT INTO ventas (total, metodo_pago) VALUES (?, ?)",
-                (total, metodo_pago),
+                "INSERT INTO ventas (total, metodo_pago, cliente_nombre, cliente_documento, cliente_telefono) VALUES (?, ?, ?, ?, ?)",
+                (total, metodo_pago, cliente_nombre, cliente_documento, cliente_telefono),
             )
             id_venta = cursor.lastrowid
 
@@ -61,6 +61,32 @@ class SaleModel:
             return False, str(e)
         finally:
             conn.close()
+
+    @staticmethod
+    def get_sale(id_venta):
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT id_venta, fecha, total, metodo_pago, cliente_nombre, cliente_documento, cliente_telefono
+            FROM ventas
+            WHERE id_venta = ?
+            """,
+            (id_venta,)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return None
+        return {
+            "id_venta": row[0],
+            "fecha": row[1],
+            "total": row[2],
+            "metodo_pago": row[3],
+            "cliente_nombre": row[4],
+            "cliente_documento": row[5],
+            "cliente_telefono": row[6]
+        }
 
     @staticmethod
     def get_sale_details(id_venta):
