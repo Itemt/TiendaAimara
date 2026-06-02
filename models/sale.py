@@ -19,11 +19,10 @@ class SaleModel:
         ]
 
     @staticmethod
-    def create_sale(cart_items, total, metodo_pago="Efectivo", cliente_nombre=None, cliente_cedula=None, cliente_celular=None):
+    def create_sale(cart_items, total, metodo_pago="Efectivo", cliente_nombre="", cliente_documento="", cliente_telefono=""):
         """
         cart_items: list of dicts {"codigo", "cantidad", "subtotal"}
         metodo_pago: 'Efectivo' | 'Dataphone' | 'Transferencia'
-        cliente_nombre, cliente_cedula, cliente_celular: datos opcionales del cliente
         Returns id_venta if success
         """
         conn = get_connection()
@@ -32,8 +31,8 @@ class SaleModel:
         try:
             # 1. Insertar Venta
             cursor.execute(
-                "INSERT INTO ventas (total, metodo_pago, cliente_nombre, cliente_cedula, cliente_celular) VALUES (?, ?, ?, ?, ?)",
-                (total, metodo_pago, cliente_nombre or None, cliente_cedula or None, cliente_celular or None),
+                "INSERT INTO ventas (total, metodo_pago, cliente_nombre, cliente_documento, cliente_telefono) VALUES (?, ?, ?, ?, ?)",
+                (total, metodo_pago, cliente_nombre, cliente_documento, cliente_telefono),
             )
             id_venta = cursor.lastrowid
 
@@ -64,6 +63,32 @@ class SaleModel:
             conn.close()
 
     @staticmethod
+    def get_sale(id_venta):
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT id_venta, fecha, total, metodo_pago, cliente_nombre, cliente_documento, cliente_telefono
+            FROM ventas
+            WHERE id_venta = ?
+            """,
+            (id_venta,)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return None
+        return {
+            "id_venta": row[0],
+            "fecha": row[1],
+            "total": row[2],
+            "metodo_pago": row[3],
+            "cliente_nombre": row[4],
+            "cliente_documento": row[5],
+            "cliente_telefono": row[6]
+        }
+
+    @staticmethod
     def get_sale_details(id_venta):
         conn = get_connection()
         cursor = conn.cursor()
@@ -73,13 +98,13 @@ class SaleModel:
                    COALESCE(p.nombre, 'Producto sin stock/registro (' || dv.codigo_producto || ')') AS nombre, 
                    COALESCE(p.categoria, '') AS categoria, 
                    COALESCE(p.talla, '') AS talla, 
-                   COALESCE(p.precio, ROUND(dv.subtotal / dv.cantidad, 0)) AS precio, 
+                   COALESCE(p.precio, (dv.subtotal / dv.cantidad)) AS precio, 
                    COALESCE(p.stock, 0) AS stock, 
-                   (dv.cantidad - COALESCE((SELECT SUM(d.cantidad) FROM devoluciones d WHERE d.id_venta = dv.id_venta AND d.codigo_producto = dv.codigo_producto), 0)) AS cantidad, 
+                   dv.cantidad, 
                    dv.subtotal
             FROM detalles_venta dv
             LEFT JOIN productos p ON p.codigo = dv.codigo_producto
-            WHERE dv.id_venta = ? AND (dv.cantidad - COALESCE((SELECT SUM(d.cantidad) FROM devoluciones d WHERE d.id_venta = dv.id_venta AND d.codigo_producto = dv.codigo_producto), 0)) > 0
+            WHERE dv.id_venta = ?
             ORDER BY nombre ASC
             """,
             (id_venta,),
@@ -87,24 +112,6 @@ class SaleModel:
         rows = cursor.fetchall()
         conn.close()
         return SaleModel._rows_to_items(rows)
-
-    @staticmethod
-    def get_client_data(id_venta):
-        """Retorna los datos del cliente guardados en la venta o None si no existen."""
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT cliente_nombre, cliente_cedula, cliente_celular FROM ventas WHERE id_venta = ?",
-            (id_venta,),
-        )
-        row = cursor.fetchone()
-        conn.close()
-        if not row:
-            return None
-        nombre, cedula, celular = row
-        if not nombre and not cedula and not celular:
-            return None
-        return {"nombre": nombre or "", "cedula": cedula or "", "celular": celular or ""}
 
     @staticmethod
     def replace_sale(id_venta, cart_items, total):
@@ -155,12 +162,12 @@ class SaleModel:
         cursor.execute(
             """
             SELECT v.id_venta, v.fecha, v.total,
-                   COALESCE(ROUND(SUM(d.cantidad * ROUND(dv.subtotal / dv.cantidad, 0)), 0), 0) AS devoluciones_total,
+                   COALESCE((SELECT SUM(d.cantidad * (dv.subtotal / dv.cantidad))
+                             FROM devoluciones d
+                             JOIN detalles_venta dv ON dv.id_venta = d.id_venta AND dv.codigo_producto = d.codigo_producto
+                             WHERE d.id_venta = v.id_venta), 0) AS devoluciones_total,
                    COALESCE(v.metodo_pago, 'Efectivo') AS metodo_pago
             FROM ventas v
-            LEFT JOIN devoluciones d ON d.id_venta = v.id_venta
-            LEFT JOIN detalles_venta dv ON dv.id_venta = d.id_venta AND dv.codigo_producto = d.codigo_producto
-            GROUP BY v.id_venta, v.fecha, v.total, v.metodo_pago
             ORDER BY v.fecha DESC
             """
         )
@@ -177,13 +184,20 @@ class SaleModel:
             SELECT v.id_venta,
                    v.fecha,
                    v.total,
-                   COALESCE(ROUND(SUM(d.cantidad * ROUND(dv.subtotal / dv.cantidad, 0)), 0), 0) AS total_devuelto,
-                   CAST(ROUND(v.total - COALESCE(SUM(d.cantidad * ROUND(dv.subtotal / dv.cantidad, 0)), 0), 0) AS INTEGER) AS total_neto,
+                   COALESCE((
+                       SELECT SUM(d.cantidad * (dv.subtotal / dv.cantidad))
+                       FROM devoluciones d
+                       JOIN detalles_venta dv ON dv.id_venta = d.id_venta AND dv.codigo_producto = d.codigo_producto
+                       WHERE d.id_venta = v.id_venta
+                   ), 0) AS total_devuelto,
+                   v.total - COALESCE((
+                       SELECT SUM(d.cantidad * (dv.subtotal / dv.cantidad))
+                       FROM devoluciones d
+                       JOIN detalles_venta dv ON dv.id_venta = d.id_venta AND dv.codigo_producto = d.codigo_producto
+                       WHERE d.id_venta = v.id_venta
+                   ), 0) AS total_neto,
                    COALESCE(v.metodo_pago, 'Efectivo') AS metodo_pago
             FROM ventas v
-            LEFT JOIN devoluciones d ON d.id_venta = v.id_venta
-            LEFT JOIN detalles_venta dv ON dv.id_venta = d.id_venta AND dv.codigo_producto = d.codigo_producto
-            GROUP BY v.id_venta, v.fecha, v.total, v.metodo_pago
             ORDER BY v.fecha DESC
             """
         )
@@ -239,17 +253,11 @@ class SaleModel:
                     (cantidad, codigo_producto),
                 )
 
-            # Borrar cambios primero (FK apunta a devoluciones)
-            cursor.execute(
-                "DELETE FROM cambios WHERE id_devolucion IN (SELECT id_devolucion FROM devoluciones WHERE id_venta = ?)",
-                (id_venta,),
-            )
-            cursor.execute("DELETE FROM cambios WHERE id_venta=?", (id_venta,))
             cursor.execute("DELETE FROM devoluciones WHERE id_venta=?", (id_venta,))
             cursor.execute("DELETE FROM detalles_venta WHERE id_venta=?", (id_venta,))
             cursor.execute("DELETE FROM ventas WHERE id_venta=?", (id_venta,))
             conn.commit()
-            return True, f"Venta #{id_venta} anulada completamente del historial."
+            return True, f"Venta #{id_venta} borrada completamente del historial."
         except Exception as e:
             conn.rollback()
             return False, str(e)

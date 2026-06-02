@@ -3,7 +3,7 @@
 Sistema de Punto de Venta para **Tienda Aimara** — boutique de moda.  
 Construido con Python + interfaz web local (HTML/CSS/JS) servida por un servidor HTTP embebido.
 
-> **Versión actual: v2.1.0**
+> **Versión actual: v2.4.1**
 
 ---
 
@@ -69,6 +69,13 @@ Requiere Python 3.9+ y PyInstaller instalado. El ejecutable queda en `dist/Aimar
 ---
 
 ## 📋 Historial de versiones
+
+### v2.4.1 — 2026-06-01
+- 🛠️ **Hotfix Login** — Corregido error de sintaxis en `app.js` que impedía el inicio de sesión y la carga de la interfaz.
+
+### v2.4.0 — 2026-06-01
+- ✅ **Datos de Cliente** — Soporte para capturar Nombre, Cédula/NIT y Teléfono del cliente en las ventas y recibos.
+- ✅ **Cambios Multi-producto** — Ahora es posible cambiar una prenda por varias diferentes dentro del mismo flujo de "Actualizar Factura".
 
 ### v2.1.0 — 2026-05-28
 - ✅ **Optimización de Caché y Cambios Parciales** — Se agregaron cabeceras `Cache-Control: no-cache` y parámetros de versión en los recursos web para evitar que el navegador cachee código JavaScript antiguo.

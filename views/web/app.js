@@ -38,7 +38,7 @@ function money(value) {
   return `$${Number(value || 0).toFixed(2)}`;
 }
 
-function printReceiptDirect(saleId, total, items, metodoPago, cancelo, clienteData, diffMsg) {
+function printReceiptDirect(saleId, total, items, metodoPago, cancelo, clienteNombre, clienteDocumento, clienteTelefono) {
   const printWindow = window.open('', '_blank', 'width=620,height=800');
   if (!printWindow) {
     alert('El navegador bloqueó la ventana de impresión. Permite las ventanas emergentes.');
@@ -50,18 +50,9 @@ function printReceiptDirect(saleId, total, items, metodoPago, cancelo, clienteDa
   const cambio = Math.max(0, cancelo - total);
   const cajero = (state.user && state.user.username) ? state.user.username.toUpperCase() : 'CAJERO';
 
-  // Datos del cliente
-  const clienteNombre = (clienteData && clienteData.nombre) ? clienteData.nombre.toUpperCase() : '';
-  const clienteCedula = (clienteData && clienteData.cedula) ? clienteData.cedula : '';
-  const clienteCelular = (clienteData && clienteData.celular) ? clienteData.celular : '';
-
   const now = new Date();
   const dateStr = now.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
   const timeStr = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true });
-
-  // IVA 19% incluido en el precio (precio ya incluye IVA)
-  const baseGravable = Math.round(total / 1.19);
-  const ivaValor = total - baseGravable;
 
   // Tabla de productos estilo DIAN: # | Descripción | Cant | V.Unit | Total
   const itemRows = items.map((item, idx) => `
@@ -74,11 +65,17 @@ function printReceiptDirect(saleId, total, items, metodoPago, cancelo, clienteDa
     </tr>
   `).join('');
 
-  // Total de unidades (suma de cantidades, no # de items)
-  const totalUnidades = items.reduce((sum, i) => sum + Number(i.cantidad || 1), 0);
-
   const medioPagoLabel = metodoPago === 'Datáfono' ? 'DATÁFONO' :
                          metodoPago === 'Transferencia' ? 'TRANSFERENCIA' : 'EFECTIVO';
+
+  let customerHtml = '';
+  if (clienteNombre || clienteDocumento || clienteTelefono) {
+    customerHtml = `<div class="sep"></div><div style="font-size:9px;">`;
+    if (clienteNombre) customerHtml += `<div>Cliente: ${clienteNombre.toUpperCase()}</div>`;
+    if (clienteDocumento) customerHtml += `<div>Doc/NIT: ${clienteDocumento}</div>`;
+    if (clienteTelefono) customerHtml += `<div>Tel: ${clienteTelefono}</div>`;
+    customerHtml += `</div>`;
+  }
 
   const html = `
     <html>
@@ -91,7 +88,7 @@ function printReceiptDirect(saleId, total, items, metodoPago, cancelo, clienteDa
           width: 58mm;
           margin: 0;
           padding: 3mm 3mm 10mm 3mm;
-          font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+          font-family: 'Courier New', Courier, monospace;
           font-size: 9.5px;
           font-weight: bold;
           color: #000;
@@ -101,19 +98,17 @@ function printReceiptDirect(saleId, total, items, metodoPago, cancelo, clienteDa
         }
         .center { text-align: center; }
         .right  { text-align: right; }
-        .bold   { font-weight: bold; }
-        .title  { font-size: 13px; font-weight: bold; letter-spacing: 0.5px; margin: 2px 0; }
-        .sep    { border-top: 2px dashed #000; margin: 4px 0; }
-        .sep2   { border-top: 3px solid #000; margin: 4px 0; }
-        table   { width: 100%; border-collapse: collapse; font-size: 8.5px; font-weight: bold; }
-        th      { font-size: 8px; font-weight: bold; border-bottom: 2px solid #000; padding: 2px 1px; }
-        td      { padding: 2px 1px; vertical-align: top; font-weight: bold; }
-        .tot-row { display: flex; justify-content: space-between; margin: 1.5px 0; font-size: 9px; font-weight: bold; }
-        .tot-row.big { font-size: 11px; font-weight: bold; margin-top: 3px; }
-        .badge  { border: 2px solid #000; padding: 2px 6px; display: inline-block; margin: 3px 0; font-size: 9px; font-weight: bold; }
-        .pago-row { display: flex; justify-content: space-between; font-size: 9px; margin: 1.5px 0; font-weight: bold; }
-        .policy { font-size: 7.5px; font-weight: bold; line-height: 1.5; margin-top: 3px; }
-        .client-row { font-size: 8px; font-weight: bold; margin: 1px 0; }
+        .bold   { font-weight: 900; }
+        .title  { font-size: 13px; font-weight: 900; letter-spacing: 0.5px; margin: 2px 0; }
+        .sep    { border-top: 1px dashed #000; margin: 4px 0; }
+        .sep2   { border-top: 2px solid #000; margin: 4px 0; }
+        table   { width: 100%; border-collapse: collapse; font-size: 8.5px; }
+        th      { font-size: 8px; border-bottom: 1px solid #000; padding: 2px 1px; }
+        td      { padding: 2px 1px; vertical-align: top; }
+        .tot-row { display: flex; justify-content: space-between; margin: 1.5px 0; font-size: 9px; }
+        .tot-row.big { font-size: 11px; font-weight: 900; margin-top: 3px; }
+        .badge  { border: 1.5px solid #000; padding: 2px 6px; display: inline-block; margin: 3px 0; font-size: 9px; }
+        .pago-row { display: flex; justify-content: space-between; font-size: 9px; margin: 1.5px 0; }
       </style>
     </head>
     <body>
@@ -126,7 +121,7 @@ function printReceiptDirect(saleId, total, items, metodoPago, cancelo, clienteDa
         <div>IG: @Aimara_ModaFashion09</div>
       </div>
       <div class="sep2"></div>
-      <div style="font-size:8px; line-height:1.5; font-weight:900;">
+      <div style="font-size:8px; line-height:1.5;">
         <div>Tipo Contribuyente: Persona Natural</div>
         <div>Responsabilidad Trib.: No aplica</div>
         <div>Régimen Fiscal: R-99-PN</div>
@@ -140,10 +135,7 @@ function printReceiptDirect(saleId, total, items, metodoPago, cancelo, clienteDa
         <span>${dateStr}</span>
       </div>
       <div>Hora: ${timeStr}</div>
-      <div>Cajero: ${cajero}</div>
-      ${clienteNombre ? `<div class="sep"></div><div class="client-row">Cliente: ${clienteNombre}</div>` : ''}
-      ${clienteCedula ? `<div class="client-row">Cédula: ${clienteCedula}</div>` : ''}
-      ${clienteCelular ? `<div class="client-row">Cel: ${clienteCelular}</div>` : ''}
+      ${customerHtml}
       <div class="sep"></div>
 
       <!-- TABLA PRODUCTOS -->
@@ -162,9 +154,7 @@ function printReceiptDirect(saleId, total, items, metodoPago, cancelo, clienteDa
       <div class="sep2"></div>
 
       <!-- TOTALES -->
-      <div class="tot-row"><span>TOTAL UNIDADES:</span><span>${totalUnidades}</span></div>
-      <div class="tot-row"><span>BASE GRAVABLE:</span><span>${fmt(baseGravable)}</span></div>
-      <div class="tot-row"><span>IVA (19%):</span><span>${fmt(ivaValor)}</span></div>
+      <div class="tot-row"><span>TOTAL PRODUCTOS:</span><span>${items.length}</span></div>
       <div class="tot-row big"><span>TOTAL:</span><span>${fmt(total)}</span></div>
       <div class="tot-row"><span>CANCELO:</span><span>${fmt(cancelo)}</span></div>
       <div class="tot-row"><span>CAMBIO:</span><span>${fmt(cambio)}</span></div>
@@ -179,21 +169,14 @@ function printReceiptDirect(saleId, total, items, metodoPago, cancelo, clienteDa
       <div class="sep"></div>
 
       <!-- PIE -->
+      <div>CAJERO: ${cajero}</div>
+      <div>VENDEDOR: ${cajero}</div>
       <div class="sep2"></div>
-      <div class="center policy">
-        <div style="font-weight:900; font-size:8px; margin-bottom:2px;">POLÍTICAS DE CAMBIO</div>
-        <div>• Solo se realizan cambios en compras a domicilio</div>
-        <div>  o prendas adquiridas como regalo.</div>
-        <div>• Todas las prendas son medidas y verificadas</div>
-        <div>  en tienda antes de la entrega.</div>
-        <div>• Plazo: 2 días hábiles después de la compra.</div>
-        <div>• La prenda debe conservarse en excelente</div>
-        <div>  estado y con sus etiquetas.</div>
-        <div>• No se realizan devoluciones de dinero.</div>
-        <div>• Cambios sujetos a disponibilidad de inventario.</div>
-        <div style="margin-top:3px;">¡GRACIAS POR SU COMPRA!</div>
+      <div class="center" style="font-size:8px; margin-top:4px;">
+        <div>Conserve este ticket para cambios.</div>
+        <div>Plazo: 15 días. Etiquetas originales.</div>
+        <div>¡GRACIAS POR SU COMPRA!</div>
       </div>
-      ${diffMsg ? diffMsg : ''}
 
       <script>
         window.onload = function() { window.print(); setTimeout(function(){ window.close(); }, 600); };
@@ -205,36 +188,7 @@ function printReceiptDirect(saleId, total, items, metodoPago, cancelo, clienteDa
   printWindow.document.close();
 }
 
-
-
-
-// Imprime la factura actualizada (cambio de producto) mostrando diferencia
-function printUpdatedReceipt(saleId, newTotal, items, originalTotal, clienteData) {
-  const fmt = (value) => '$' + Math.round(Number(value || 0)).toLocaleString('es-CO');
-  const diff = originalTotal ? (newTotal - originalTotal) : 0;
-  let diffMsg = '';
-  if (originalTotal && Math.abs(diff) >= 1) {
-    if (diff > 0) {
-      diffMsg = `
-      <div class="sep2"></div>
-      <div style="border: 2px solid #000; padding: 4px; text-align: center; font-weight: 900; font-size: 10px; margin: 4px 0;">
-        DIFERENCIA A COBRAR:<br/>
-        <span style="font-size: 13px;">${fmt(diff)}</span>
-      </div>`;
-    } else {
-      diffMsg = `
-      <div class="sep2"></div>
-      <div style="border: 2px dashed #000; padding: 4px; text-align: center; font-weight: 900; font-size: 10px; margin: 4px 0;">
-        SALDO A FAVOR CLIENTE:<br/>
-        <span style="font-size: 13px;">${fmt(Math.abs(diff))}</span>
-      </div>`;
-    }
-  }
-  printReceiptDirect(saleId, newTotal, items, null, null, clienteData || null, diffMsg);
-}
-
 async function printThermalStickersDirect(products) {
-
   showToast("Generando códigos de barra...");
   const productsWithBarcodes = await Promise.all(products.map(async (p) => {
     try {
@@ -909,53 +863,13 @@ async function previewSale() {
     return;
   }
 
-  const preview = await apiCall("get_sale_preview", state.cart);
-  const items = preview.data.items || [];
-  const total = preview.data.total || 0;
-
-  // Mostrar modal para datos del cliente antes de confirmar
-  const clienteBody = `
-    <div style="display:flex; flex-direction:column; gap:12px;">
-      <div style="color:var(--muted); font-size:0.85rem;">Opcional — aparecerá en la factura impresa.</div>
-      <div>
-        <label style="font-weight:700; font-size:0.88rem;">Nombre del cliente</label>
-        <input id="clienteNombre" type="text" placeholder="Ej: María González" style="width:100%; margin-top:4px; padding:9px 12px; border:1.5px solid var(--line); border-radius:9px; font-size:0.95rem; background:var(--surface); color:var(--text); box-sizing:border-box;" />
-      </div>
-      <div style="display:flex; gap:10px;">
-        <div style="flex:1;">
-          <label style="font-weight:700; font-size:0.88rem;">Cédula</label>
-          <input id="clienteCedula" type="text" placeholder="Ej: 1098765432" style="width:100%; margin-top:4px; padding:9px 12px; border:1.5px solid var(--line); border-radius:9px; font-size:0.95rem; background:var(--surface); color:var(--text); box-sizing:border-box;" />
-        </div>
-        <div style="flex:1;">
-          <label style="font-weight:700; font-size:0.88rem;">Celular</label>
-          <input id="clienteCelular" type="text" placeholder="Ej: 311 837 1495" style="width:100%; margin-top:4px; padding:9px 12px; border:1.5px solid var(--line); border-radius:9px; font-size:0.95rem; background:var(--surface); color:var(--text); box-sizing:border-box;" />
-        </div>
-      </div>
-    </div>
-  `;
-
-  showModal("👤 Datos del cliente (opcional)", clienteBody, [
-    {
-      label: "Omitir",
-      kind: "secondary-btn",
-      onClick: () => _mostrarModalPago(null)
-    },
-    {
-      label: "Continuar ➜",
-      kind: "primary-btn",
-      onClick: () => {
-        const nombre = document.getElementById('clienteNombre')?.value?.trim() || '';
-        const cedula = document.getElementById('clienteCedula')?.value?.trim() || '';
-        const celular = document.getElementById('clienteCelular')?.value?.trim() || '';
-        _mostrarModalPago({ nombre, cedula, celular });
-      }
-    }
-  ]);
-
-  function _mostrarModalPago(clienteData) {
   // Resetear selección antes de mostrar el modal
   state.selectedPaymentMethod = "Efectivo";
   state.canceloAmount = 0;
+
+  const preview = await apiCall("get_sale_preview", state.cart);
+  const items = preview.data.items || [];
+  const total = preview.data.total || 0;
 
   const chipStyle = (active) => `
     padding: 10px 16px; border: 2px solid ${active ? 'var(--primary)' : 'var(--line)'}; border-radius: 12px;
@@ -978,6 +892,18 @@ async function previewSale() {
       <div class="payment-chip" data-method="Efectivo" onclick="selectPaymentChip(this)" style="${chipStyle(true)} flex:1; min-width:90px;">💵 Efectivo</div>
       <div class="payment-chip" data-method="Datáfono" onclick="selectPaymentChip(this)" style="${chipStyle(false)} flex:1; min-width:90px;">💳 Datáfono</div>
       <div class="payment-chip" data-method="Transferencia" onclick="selectPaymentChip(this)" style="${chipStyle(false)} flex:1; min-width:90px;">📲 Transferencia</div>
+    </div>
+
+    <!-- Datos del cliente -->
+    <div style="margin-bottom:16px;">
+      <div style="font-weight:700; margin-bottom:6px; font-size:0.9rem;">Datos del Cliente <span style="color:var(--muted);font-weight:400;font-size:0.8rem;">(opcional)</span></div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <input id="clienteNombre" type="text" placeholder="Nombre completo" style="padding:10px; border:1.5px solid var(--line); border-radius:10px; font-size:0.9rem; background:var(--surface); color:var(--text);" />
+        <div style="display:flex; gap:8px;">
+          <input id="clienteDocumento" type="text" placeholder="Cédula/NIT" style="flex:1; padding:10px; border:1.5px solid var(--line); border-radius:10px; font-size:0.9rem; background:var(--surface); color:var(--text);" />
+          <input id="clienteTelefono" type="text" placeholder="Teléfono" style="flex:1; padding:10px; border:1.5px solid var(--line); border-radius:10px; font-size:0.9rem; background:var(--surface); color:var(--text);" />
+        </div>
+      </div>
     </div>
 
     <!-- Campo cancelo (solo si Efectivo) -->
@@ -1005,6 +931,9 @@ async function previewSale() {
       onClick: async () => {
         // Leer valores del DOM ANTES de que hideModal los borre
         const metodoPago = state.selectedPaymentMethod || "Efectivo";
+        const clienteNombre = document.getElementById('clienteNombre')?.value.trim() || "";
+        const clienteDocumento = document.getElementById('clienteDocumento')?.value.trim() || "";
+        const clienteTelefono = document.getElementById('clienteTelefono')?.value.trim() || "";
         const canceloRaw = document.getElementById('canceloInput')?.value;
         const cancelo = canceloRaw ? Number(canceloRaw) : total;
         state.canceloAmount = cancelo;
@@ -1013,13 +942,13 @@ async function previewSale() {
         const result = await apiCall("create_sale", {
           cart_items: state.cart,
           metodo_pago: metodoPago,
-          cliente_nombre: clienteData ? (clienteData.nombre || '') : '',
-          cliente_cedula: clienteData ? (clienteData.cedula || '') : '',
-          cliente_celular: clienteData ? (clienteData.celular || '') : '',
+          cliente_nombre: clienteNombre,
+          cliente_documento: clienteDocumento,
+          cliente_telefono: clienteTelefono
         });
         if (result.ok && result.data) {
           const itemsForPrint = state.cart.map(i => ({ ...i }));
-          printReceiptDirect(result.data.id_venta, result.data.total, itemsForPrint, metodoPago, cancelo, clienteData);
+          printReceiptDirect(result.data.id_venta, result.data.total, itemsForPrint, metodoPago, cancelo);
           showModal(
             "✅ Venta confirmada",
             `<div style="text-align:center;padding:8px 0;">
@@ -1040,7 +969,6 @@ async function previewSale() {
       },
     },
   ]);
-  } // fin _mostrarModalPago
 }
 
 // Actualiza el display del cambio dinámicamente
@@ -1363,8 +1291,7 @@ async function openUpdateInvoiceModal() {
           const cards = document.querySelectorAll(".pending-card");
           let anyDone = false;
           let lastTotal = null;
-          let diffTotal = 0;
-          const errors = [];
+          let errors = [];
 
           for (const card of cards) {
             const input = card.querySelector(".pending-new-code");
@@ -1425,13 +1352,11 @@ async function openUpdateInvoiceModal() {
                           motivo: motivo,
                         });
                         lastTotal = result.data?.new_total || lastTotal;
-                        diffTotal += (result.data?.diferencia || 0);
                         anyDone = true;
-                        // Imprimir factura actualizada con los detalles necesarios
+                        // Imprimir factura actualizada
                         if (result.data?.new_total) {
                           const detRes = await apiCall("get_sale_details", { id_venta: ticketId });
-                          const clienteData = detRes.cliente || null;
-                          printUpdatedReceipt(ticketId, result.data.new_total, detRes.data || [], result.data.original_total, clienteData);
+                          printReceiptDirect(ticketId, result.data.new_total, detRes.data || []);
                         }
                       } catch (err) {
                         errors.push(err.message);
@@ -1452,17 +1377,12 @@ async function openUpdateInvoiceModal() {
           if (errors.length > 0) {
             showModal("⚠️ Errores", errors.join("<br/>"), [{ label: "Aceptar", kind: "primary-btn" }]);
           } else if (anyDone) {
-            const balanceMsg = diffTotal > 0 
-              ? `<div style="color:var(--danger); font-weight:700; margin-top:8px;">Cobrar diferencia: ${money(diffTotal)}</div>`
-              : (diffTotal < 0 ? `<div style="color:var(--success); font-weight:700; margin-top:8px;">A favor del cliente: ${money(Math.abs(diffTotal))}<br/><span style="font-weight:normal; font-size:0.82rem; color:var(--muted);">Para completar la totalidad de la factura original debes agregar al carrito ${money(Math.abs(diffTotal))} o más.</span></div>` : '');
-            
             showModal(
               "✅ Cambio(s) completado(s)",
               `<div style="text-align:center; padding:10px 0;">
                 <div style="font-size:2rem; margin-bottom:8px;">🧾</div>
                 <div style="font-weight:700; font-size:1.1rem; margin-bottom:6px;">Cambio(s) completado(s) exitosamente</div>
                 <div style="color:var(--muted); font-size:0.9rem;">Ticket #${ticketId} · Nuevo total: ${money(lastTotal)}</div>
-                ${balanceMsg}
               </div>`,
               [{ label: "Aceptar", kind: "primary-btn" }]
             );
@@ -1526,16 +1446,29 @@ async function openClassicSwapModal(ticketId) {
           value="1"
           style="width: 100%; padding: 10px 14px; border: 1.5px solid var(--line); border-radius: 10px; font-size: 1rem; background: var(--surface); color: var(--text); box-sizing: border-box;"
         />
+      <div style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
+        <div style="font-weight: 700; font-size: 0.95rem;">2. Productos nuevos:</div>
+        <button id="addSwapItemBtn" type="button" class="btn secondary-btn" style="padding: 4px 8px; font-size: 0.8rem; border-radius: 6px;">+ Agregar otro</button>
       </div>
-      <div>
-        <div style="font-weight: 700; margin-bottom: 8px; font-size: 0.95rem;">2. Código del nuevo producto (escanear o escribir):</div>
-        <input
-          id="newProductCode"
-          type="text"
-          placeholder="Escanear o ingresar código del nuevo producto"
-          style="width: 100%; padding: 10px 14px; border: 1.5px solid var(--line); border-radius: 10px; font-size: 1rem; background: var(--surface); color: var(--text); box-sizing: border-box;"
-          autofocus
-        />
+      <div id="swapItemsContainer" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; margin-top: 8px;">
+        <div class="swap-item-row" style="display: flex; gap: 8px; align-items: center;">
+          <input
+            type="text"
+            class="new-item-code"
+            placeholder="Código del producto"
+            style="flex: 2; padding: 10px 14px; border: 1.5px solid var(--line); border-radius: 10px; font-size: 1rem; background: var(--surface); color: var(--text); box-sizing: border-box;"
+            autofocus
+          />
+          <input
+            type="number"
+            class="new-item-qty"
+            placeholder="Cant"
+            value="1"
+            min="1"
+            style="flex: 1; padding: 10px 14px; border: 1.5px solid var(--line); border-radius: 10px; font-size: 1rem; background: var(--surface); color: var(--text); box-sizing: border-box;"
+          />
+          <button type="button" class="btn secondary-btn remove-swap-item-btn" style="padding: 10px; border-radius: 10px; color: var(--danger);">X</button>
+        </div>
       </div>
       <div>
         <div style="font-weight: 700; margin-bottom: 8px; font-size: 0.95rem;">3. Motivo del cambio:</div>
@@ -1570,7 +1503,6 @@ async function openClassicSwapModal(ticketId) {
           const oldCodigo = selectedRadio.value;
           const swapQty = Number($("#swapQuantity").value || 1);
           const maxQty = Number(selectedRadio.getAttribute('data-max-qty') || 1);
-          const newCodigo = $("#newProductCode").value.trim().replace(/`/g, "-");
           const motivo = $("#swapMotivo").value.trim() || "Cambio de producto";
 
           if (swapQty <= 0 || swapQty > maxQty || !Number.isInteger(swapQty)) {
@@ -1579,14 +1511,26 @@ async function openClassicSwapModal(ticketId) {
             ]);
             return;
           }
-          if (!newCodigo) {
-            showModal("Actualizar Factura", "Debes ingresar el código del nuevo producto.", [
+
+          const itemRows = document.querySelectorAll(".swap-item-row");
+          const newItems = [];
+          for (let row of itemRows) {
+             let code = row.querySelector(".new-item-code").value.trim().replace(/`/g, "-");
+             let qty = Number(row.querySelector(".new-item-qty").value || 1);
+             if (code && qty > 0) {
+                 newItems.push({ codigo: code, cantidad: qty });
+             }
+          }
+
+          if (newItems.length === 0) {
+            showModal("Actualizar Factura", "Debes ingresar al menos un producto nuevo.", [
               { label: "Aceptar", kind: "primary-btn" },
             ]);
             return;
           }
-          if (oldCodigo === newCodigo) {
-            showModal("Actualizar Factura", "El nuevo producto debe ser diferente al actual.", [
+          
+          if (newItems.some(i => i.codigo === oldCodigo)) {
+            showModal("Actualizar Factura", "Los productos nuevos deben ser diferentes al actual.", [
               { label: "Aceptar", kind: "primary-btn" },
             ]);
             return;
@@ -1595,18 +1539,24 @@ async function openClassicSwapModal(ticketId) {
           const oldRow = rows.find((r) => r.codigo === oldCodigo);
           const oldNombre = oldRow ? oldRow.nombre : oldCodigo;
 
-          let newProduct = null;
+          let newProductsInfo = [];
           try {
-            const prodResp = await apiCall("get_product", newCodigo);
-            newProduct = prodResp.data;
+            for (let item of newItems) {
+               const prodResp = await apiCall("get_product", item.codigo);
+               newProductsInfo.push({ ...prodResp.data, reqQty: item.cantidad });
+            }
           } catch (err) {
-            showModal("Actualizar Factura", `Producto nuevo no encontrado: ${err.message}`, [
+            showModal("Actualizar Factura", `Error buscando producto: ${err.message}`, [
               { label: "Aceptar", kind: "primary-btn" },
             ]);
             return;
           }
 
           hideModal();
+
+          const entersHtml = newProductsInfo.map(p => 
+            `<div style="padding: 8px 14px; background: var(--surface-2); border-radius: 8px; margin: 4px 0;">${p.reqQty} unidad(es) de ${p.nombre} <span style="color:var(--muted)">(${p.codigo})</span> · ${money(p.precio)} c/u</div>`
+          ).join("");
 
           showModal(
             "Confirmar cambio",
@@ -1616,7 +1566,7 @@ async function openClassicSwapModal(ticketId) {
                 <div style="margin-top: 10px;"><strong>❌ Sale del stock:</strong></div>
                 <div style="padding: 8px 14px; background: var(--surface-2); border-radius: 8px; margin: 4px 0;">${swapQty} unidad(es) de ${oldNombre} <span style="color:var(--muted)">(${oldCodigo})</span></div>
                 <div style="margin-top: 10px;"><strong>✅ Entra al ticket:</strong></div>
-                <div style="padding: 8px 14px; background: var(--surface-2); border-radius: 8px; margin: 4px 0;">${swapQty} unidad(es) de ${newProduct.nombre} <span style="color:var(--muted)">(${newCodigo})</span> · ${money(newProduct.precio)}</div>
+                ${entersHtml}
                 <div style="margin-top: 10px; color: var(--muted); font-size: 0.87rem;">Motivo: ${motivo}</div>
               </div>
             `,
@@ -1633,25 +1583,16 @@ async function openClassicSwapModal(ticketId) {
                   const result = await apiCall("update_sale_item", {
                     id_venta: ticketId,
                     old_codigo: oldCodigo,
-                    new_codigo: newCodigo,
+                    new_items: newItems,
                     cantidad: swapQty,
                     motivo: motivo,
                   });
 
                   const updatedItems = result.data.receipt_items || [];
                   const newTotal = result.data.new_total || 0;
-                  // Obtener datos del cliente para la factura actualizada
-                  let clienteParaFactura = null;
-                  try {
-                    const detRes = await apiCall("get_sale_details", { id_venta: ticketId });
-                    clienteParaFactura = detRes.cliente || null;
-                  } catch(e) {}
-                  printUpdatedReceipt(ticketId, newTotal, updatedItems, result.data.original_total, clienteParaFactura);
-
-                  const diff = result.data.diferencia || 0;
-                  const balanceMsg = diff > 0 
-                    ? `<div style="color:var(--danger); font-weight:700; margin-top:8px; font-size:0.95rem;">Cobrar diferencia: ${money(diff)}</div>`
-                    : (diff < 0 ? `<div style="color:var(--success); font-weight:700; margin-top:8px; font-size:0.95rem;">A favor del cliente: ${money(Math.abs(diff))}<br/><span style="font-weight:normal; font-size:0.8rem; color:var(--muted);">Para completar la totalidad de la factura original debes agregar al carrito ${money(Math.abs(diff))} o más.</span></div>` : '');
+                  const saleRes = await apiCall("get_sale", { id_venta: ticketId });
+                  const sData = saleRes.data || {};
+                  printReceiptDirect(ticketId, newTotal, updatedItems, sData.metodo_pago, sData.total, sData.cliente_nombre, sData.cliente_documento, sData.cliente_telefono);
 
                   showModal(
                     "✅ Factura Actualizada",
@@ -1660,7 +1601,6 @@ async function openClassicSwapModal(ticketId) {
                         <div style="font-size: 2rem; margin-bottom: 8px;">🧾</div>
                         <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 6px;">${result.message}</div>
                         <div style="color: var(--muted); font-size: 0.9rem;">Ticket #${ticketId} · Nuevo total: ${money(newTotal)}</div>
-                        ${balanceMsg}
                         <div style="margin-top: 12px; font-size: 0.85rem; color: var(--muted);">La factura actualizada fue enviada a impresión.</div>
                       </div>
                     `,
@@ -1700,6 +1640,28 @@ async function openClassicSwapModal(ticketId) {
       }
     });
   });
+
+  const addBtn = document.getElementById("addSwapItemBtn");
+  const container = document.getElementById("swapItemsContainer");
+  if (addBtn && container) {
+    addBtn.onclick = () => {
+      const row = document.createElement("div");
+      row.className = "swap-item-row";
+      row.style = "display: flex; gap: 8px; align-items: center;";
+      row.innerHTML = `
+        <input type="text" class="new-item-code" placeholder="Código del producto" style="flex: 2; padding: 10px 14px; border: 1.5px solid var(--line); border-radius: 10px; font-size: 1rem; background: var(--surface); color: var(--text); box-sizing: border-box;" />
+        <input type="number" class="new-item-qty" placeholder="Cant" value="1" min="1" style="flex: 1; padding: 10px 14px; border: 1.5px solid var(--line); border-radius: 10px; font-size: 1rem; background: var(--surface); color: var(--text); box-sizing: border-box;" />
+        <button type="button" class="btn secondary-btn remove-swap-item-btn" style="padding: 10px; border-radius: 10px; color: var(--danger);">X</button>
+      `;
+      row.querySelector(".remove-swap-item-btn").onclick = () => row.remove();
+      container.appendChild(row);
+      row.querySelector(".new-item-code").focus();
+    };
+    
+    container.querySelectorAll(".remove-swap-item-btn").forEach(btn => {
+       btn.onclick = (e) => e.target.closest(".swap-item-row").remove();
+    });
+  }
 }
 
 async function reprintSelectedSale() {
@@ -1713,10 +1675,11 @@ async function reprintSelectedSale() {
     const detailsResponse = await apiCall("get_sale_details", {
       id_venta: state.selectedHistorySale,
     });
+    const saleRes = await apiCall("get_sale", { id_venta: state.selectedHistorySale });
+    const sData = saleRes.data || {};
     const items = detailsResponse.data || [];
-    const clienteData = detailsResponse.cliente || null;
     const total = items.reduce((sum, item) => sum + Number(item.subtotal || 0), 0);
-    printReceiptDirect(state.selectedHistorySale, total, items, null, null, clienteData);
+    printReceiptDirect(state.selectedHistorySale, total, items, sData.metodo_pago, total, sData.cliente_nombre, sData.cliente_documento, sData.cliente_telefono);
     showModal("Reimpresión", `Factura #${state.selectedHistorySale} enviada a impresión directa.`, [
       { label: "Aceptar", kind: "primary-btn" },
     ]);

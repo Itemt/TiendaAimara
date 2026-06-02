@@ -1,38 +1,32 @@
-# SQLite Database
-pos_aimara.db
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# VS Code
+.vscode/
+
+# SQLite
 *.db
-*.db-journal
-*.db-wal
 *.sqlite3
 
-# Python Caches & Bytecode
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.pytest_cache/
-.coverage
-htmlcov/
+# OS
+.DS_Store
 
-# PyInstaller & Build outputs
-build/
-dist/
-*.spec
-aimara_pos.spec
-
-# Virtual Environments
+# Virtual Env
 venv/
 env/
-.venv/
-ENV/
 
-# System / Editor files
-.DS_Store
-.vscode/
-.idea/
-*.log
-temp_th_*
-temp_barcode_*
+# PyInstaller build
+dist/
+build/
+*.spec.bak
+__pycache__/
+*.pyc
+
+# Archivos generados en runtime
 last_receipt.txt
-/views/web/receipt.pdf
-/views/web/stickers_*.pdf
+stickers_a4.pdf
+stickers_thermal.pdf
+temp_barcode_*
+temp_th_*
