@@ -3,7 +3,7 @@
 Sistema de Punto de Venta para **Tienda Aimara** — boutique de moda.  
 Construido con Python + interfaz web local (HTML/CSS/JS) servida por un servidor HTTP embebido.
 
-> **Versión actual: v2.5.3**
+> **Versión actual: v2.5.4**
 
 ---
 
@@ -70,7 +70,9 @@ Requiere Python 3.9+ y PyInstaller instalado. El ejecutable queda en `dist/Aimar
 
 ## 📋 Historial de versiones
 
-### v2.5.3 — 2026-06-01
+### v2.5.4 — 2026-06-01
+- 🚫 **Validación de precio en cambio** — Restaurada la regla: el valor **total combinado** de todas las prendas nuevas debe igualar o superar el valor de la prenda devuelta. Si el cliente escoge prendas que juntas suman menos (ej: top $50k → solo crop top $40k), el sistema rechaza el cambio con mensaje claro. Aplica tanto para uno como para varios productos nuevos.
+
 - ✅ **Multi-prenda en cambio** — Ahora al completar un cambio pendiente puedes agregar varias prendas nuevas (ej: cambiar una camisa de $50k por un crop top de $25k + una blusa de $25k). Botón “+ Agregar prenda” disponible en el modal de Cambio Pendiente.
 - 💰 **Política flex de precios en cambios** — Eliminada la restricción que impedía elegir prendas de menor valor en cambios pendientes. El valor combinado de los nuevos productos puede ser igual o inferior al de la prenda devuelta.
 

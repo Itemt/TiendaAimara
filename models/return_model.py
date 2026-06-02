@@ -227,6 +227,47 @@ class ReturnModel:
             if not new_items_data:
                 return False, "Debes ingresar al menos un producto nuevo.", None
 
+            # 2b. Obtener valor del producto viejo para validar precio
+            cursor.execute(
+                """
+                SELECT cantidad, subtotal,
+                       COALESCE((
+                           SELECT SUM(d.cantidad) FROM devoluciones d
+                           WHERE d.id_venta = ? AND d.codigo_producto = ?
+                           AND (d.estado IS NULL OR d.estado = 'COMPLETADO')
+                       ), 0) AS completado_devuelto
+                FROM detalles_venta
+                WHERE id_venta = ? AND codigo_producto = ?
+                """,
+                (id_venta, old_codigo, id_venta, old_codigo),
+            )
+            old_dv_check = cursor.fetchone()
+            if old_dv_check:
+                old_cant_chk, old_subtotal_chk, completado_devuelto_chk = old_dv_check
+                restante_chk = int(old_cant_chk) - int(completado_devuelto_chk)
+                old_price_unit_chk = float(old_subtotal_chk) / restante_chk if restante_chk > 0 else 0
+            else:
+                # Fallback: precio desde tabla productos
+                cursor.execute("SELECT precio FROM productos WHERE codigo = ?", (old_codigo,))
+                old_prod_row = cursor.fetchone()
+                old_price_unit_chk = float(old_prod_row[0]) if old_prod_row else 0
+
+            valor_viejo = old_price_unit_chk * cantidad
+            total_new_value = sum(i["precio"] * i["cantidad"] for i in new_items_data)
+
+            if total_new_value < valor_viejo:
+                nombres_nuevos = " + ".join(
+                    f"{i['nombre']} (${i['precio']:,.0f}×{i['cantidad']})"
+                    for i in new_items_data
+                )
+                return (
+                    False,
+                    f"El valor total de las prendas nuevas (${total_new_value:,.0f}) es menor al de la prenda devuelta (${valor_viejo:,.0f}).\n"
+                    f"El cliente debe elegir prendas cuyo valor combinado iguale o supere ${valor_viejo:,.0f}.\n"
+                    f"(No se realizan devoluciones de dinero.)",
+                    None,
+                )
+
             # 3. Descontar stock de cada nuevo producto
             for item in new_items_data:
                 cursor.execute(
