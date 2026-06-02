@@ -430,7 +430,7 @@ class AimaraAPI:
         return self._response(True, data=pending)
 
     def complete_exchange(self, payload):
-        """Completa un cambio pendiente: vincula devolución con el nuevo producto."""
+        """Completa un cambio pendiente: vincula devolución con uno o varios productos nuevos."""
         protected = self._require_login()
         if protected:
             return protected
@@ -439,24 +439,35 @@ class AimaraAPI:
             return self._response(False, "Payload inválido.")
 
         id_devolucion = int(payload.get("id_devolucion", 0))
-        new_codigo = str(payload.get("new_codigo", "")).strip()
+        # Soporte tanto para new_items (lista) como new_codigo (legacy string único)
+        new_items = payload.get("new_items")
+        if not new_items:
+            new_codigo = str(payload.get("new_codigo", "")).strip()
+            cantidad_single = payload.get("cantidad")
+            if cantidad_single is not None:
+                cantidad_single = int(cantidad_single)
+            if new_codigo:
+                new_items = [{"codigo": new_codigo, "cantidad": cantidad_single or 1}]
+            else:
+                return self._response(False, "Debes proporcionar new_items o new_codigo.")
+
         cantidad = payload.get("cantidad")
         if cantidad is not None:
             cantidad = int(cantidad)
         motivo = payload.get("motivo")
 
-        if not id_devolucion or not new_codigo:
-            return self._response(False, "id_devolucion y new_codigo son obligatorios.")
+        if not id_devolucion:
+            return self._response(False, "id_devolucion es obligatorio.")
 
         success, message, new_total = ReturnModel.complete_exchange(
-            id_devolucion, new_codigo, cantidad=cantidad, motivo=motivo
+            id_devolucion, new_items, cantidad=cantidad, motivo=motivo
         )
         if not success:
             return self._response(False, message)
 
         # Regenerar PDF de factura actualizada
         try:
-            id_venta = None  # se obtiene desde la tabla cambios
+            id_venta = None
             from models.database import get_connection as _gc
             _conn = _gc()
             _cur = _conn.cursor()

@@ -159,19 +159,12 @@ class ReturnModel:
         ]
 
     @staticmethod
-    def complete_exchange(id_devolucion, new_codigo, cantidad=None, motivo=None):
+    def complete_exchange(id_devolucion, new_items, cantidad=None, motivo=None):
         """
-        Completa un cambio pendiente:
-        1. Obtiene la devolución pendiente (producto viejo y cantidad).
-        2. Valida stock del nuevo producto.
-        3. Descuenta stock del nuevo producto (el viejo ya fue reingresado en process_return).
-        4. Reduce subtotal del producto viejo en detalles_venta.
-        5. Inserta/fusiona el nuevo producto en detalles_venta.
-        6. Recalcula total de la venta.
-        7. Registra en tabla cambios.
-        8. Si se cambia la cantidad completa: Marca la devolución como COMPLETADO.
-           Si es un cambio parcial: reduce la cantidad de la devolución original
-           e inserta un nuevo registro de devolución marcado como COMPLETADO.
+        Completa un cambio pendiente con uno o varios productos nuevos.
+        new_items: lista de dicts [{'codigo': str, 'cantidad': int}]
+        El valor total de los nuevos productos puede ser igual o menor al original
+        (la diferencia queda a favor de la tienda por política de no devoluciones).
         Retorna (True/False, mensaje, new_total)
         """
         conn = get_connection()
@@ -194,34 +187,52 @@ class ReturnModel:
 
             if cantidad is None or cantidad <= 0:
                 cantidad = pending_qty
-            
+
             if cantidad > pending_qty:
                 return False, f"La cantidad solicitada ({cantidad}) supera la cantidad pendiente ({pending_qty}).", None
 
             actual_motivo = motivo if motivo is not None else orig_motivo
 
-            # 2. Validar nuevo producto
-            cursor.execute(
-                "SELECT nombre, precio, stock FROM productos WHERE codigo = ?",
-                (new_codigo,),
-            )
-            new_prod = cursor.fetchone()
-            if not new_prod:
-                return False, f"El producto nuevo (código: {new_codigo}) no existe en el inventario.", None
+            # 2. Validar y preparar cada nuevo producto
+            new_items_data = []
+            for item in (new_items or []):
+                new_codigo = str(item.get("codigo", "")).strip()
+                new_qty = int(item.get("cantidad", 1))
+                if not new_codigo or new_qty <= 0:
+                    continue
 
-            new_nombre, new_precio, new_stock = new_prod
-            if int(new_stock) < cantidad:
-                return (
-                    False,
-                    f"Stock insuficiente para '{new_nombre}'.\nDisponible: {new_stock}, requerido: {cantidad}.",
-                    None,
+                cursor.execute(
+                    "SELECT nombre, precio, stock FROM productos WHERE codigo = ?",
+                    (new_codigo,),
                 )
+                new_prod = cursor.fetchone()
+                if not new_prod:
+                    return False, f"El producto (código: {new_codigo}) no existe en el inventario.", None
 
-            # 3. Descontar stock del nuevo producto
-            cursor.execute(
-                "UPDATE productos SET stock = stock - ? WHERE codigo = ?",
-                (cantidad, new_codigo),
-            )
+                new_nombre, new_precio, new_stock = new_prod
+                if int(new_stock) < new_qty:
+                    return (
+                        False,
+                        f"Stock insuficiente para '{new_nombre}'.\nDisponible: {new_stock}, requerido: {new_qty}.",
+                        None,
+                    )
+
+                new_items_data.append({
+                    "codigo": new_codigo,
+                    "nombre": new_nombre,
+                    "precio": float(new_precio),
+                    "cantidad": new_qty,
+                })
+
+            if not new_items_data:
+                return False, "Debes ingresar al menos un producto nuevo.", None
+
+            # 3. Descontar stock de cada nuevo producto
+            for item in new_items_data:
+                cursor.execute(
+                    "UPDATE productos SET stock = stock - ? WHERE codigo = ?",
+                    (item["cantidad"], item["codigo"]),
+                )
 
             # 4. Reducir subtotal del producto viejo en detalles_venta
             cursor.execute(
@@ -248,29 +259,31 @@ class ReturnModel:
                     (nuevo_subtotal_viejo, id_detalle),
                 )
 
-            # 5. Insertar o fusionar el nuevo producto en detalles_venta
-            cursor.execute(
-                "SELECT id_detalle FROM detalles_venta WHERE id_venta = ? AND codigo_producto = ?",
-                (id_venta, new_codigo),
-            )
-            existing_new = cursor.fetchone()
-            if existing_new:
+            # 5. Insertar o fusionar cada nuevo producto en detalles_venta
+            for item in new_items_data:
                 cursor.execute(
-                    """
-                    UPDATE detalles_venta
-                    SET cantidad = cantidad + ?, subtotal = subtotal + ?
-                    WHERE id_detalle = ?
-                    """,
-                    (cantidad, float(new_precio) * cantidad, existing_new[0]),
+                    "SELECT id_detalle FROM detalles_venta WHERE id_venta = ? AND codigo_producto = ?",
+                    (id_venta, item["codigo"]),
                 )
-            else:
-                cursor.execute(
-                    """
-                    INSERT INTO detalles_venta (id_venta, codigo_producto, cantidad, subtotal)
-                    VALUES (?, ?, ?, ?)
-                    """,
-                    (id_venta, new_codigo, cantidad, float(new_precio) * cantidad),
-                )
+                existing_new = cursor.fetchone()
+                subtotal_item = item["precio"] * item["cantidad"]
+                if existing_new:
+                    cursor.execute(
+                        """
+                        UPDATE detalles_venta
+                        SET cantidad = cantidad + ?, subtotal = subtotal + ?
+                        WHERE id_detalle = ?
+                        """,
+                        (item["cantidad"], subtotal_item, existing_new[0]),
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        INSERT INTO detalles_venta (id_venta, codigo_producto, cantidad, subtotal)
+                        VALUES (?, ?, ?, ?)
+                        """,
+                        (id_venta, item["codigo"], item["cantidad"], subtotal_item),
+                    )
 
             # 6. Recalcular total de la venta
             cursor.execute(
@@ -286,19 +299,15 @@ class ReturnModel:
             # 7. Manejo del estado de la devolución (completo vs parcial)
             target_id_devolucion = id_devolucion
             if cantidad == pending_qty:
-                # Caso completo: marcar la devolución original como COMPLETADO
                 cursor.execute(
                     "UPDATE devoluciones SET estado = 'COMPLETADO', motivo = ? WHERE id_devolucion = ?",
                     (actual_motivo, id_devolucion),
                 )
             else:
-                # Caso parcial:
-                # A. Reducir la cantidad de la devolución original (sigue PENDIENTE_CAMBIO)
                 cursor.execute(
                     "UPDATE devoluciones SET cantidad = ? WHERE id_devolucion = ?",
                     (pending_qty - cantidad, id_devolucion),
                 )
-                # B. Crear una nueva fila para la porción completada
                 cursor.execute(
                     """
                     INSERT INTO devoluciones (id_venta, codigo_producto, cantidad, motivo, estado, fecha)
@@ -308,17 +317,19 @@ class ReturnModel:
                 )
                 target_id_devolucion = cursor.lastrowid
 
-            # 8. Registrar en tabla cambios
-            cursor.execute(
-                """
-                INSERT INTO cambios (id_devolucion, id_venta, producto_anterior, producto_nuevo, cantidad)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (target_id_devolucion, id_venta, old_codigo, new_codigo, cantidad),
-            )
+            # 8. Registrar en tabla cambios (una fila por nuevo producto)
+            for item in new_items_data:
+                cursor.execute(
+                    """
+                    INSERT INTO cambios (id_devolucion, id_venta, producto_anterior, producto_nuevo, cantidad)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (target_id_devolucion, id_venta, old_codigo, item["codigo"], item["cantidad"]),
+                )
 
             conn.commit()
-            return True, f"Cambio completado: {new_nombre} ingresado a la venta.", new_total
+            nombres_nuevos = ", ".join(i["nombre"] for i in new_items_data)
+            return True, f"Cambio completado: {nombres_nuevos} ingresado(s) a la venta.", new_total
 
         except Exception as e:
             conn.rollback()

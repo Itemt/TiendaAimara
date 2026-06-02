@@ -1232,41 +1232,43 @@ async function openUpdateInvoiceModal() {
       background: rgba(245,158,11,0.07);
     " class="pending-card">
       <div style="line-height:1.6; font-size:0.95rem; margin-bottom:10px;">
-        <div><strong>Producto a cambiar:</strong> ${p.cantidad} × ${p.nombre} <span style="color:var(--muted)">(${p.codigo_producto}${p.talla ? ' · Talla ' + p.talla : ''})</span></div>
+        <div><strong>Prenda a cambiar:</strong> ${p.cantidad} × ${p.nombre} <span style="color:var(--muted)">(${p.codigo_producto}${p.talla ? ' · Talla ' + p.talla : ''})</span></div>
       </div>
-      
+
       <div style="display:flex; flex-direction:column; gap:8px;">
-        <div>
-          <div style="font-weight:600; margin-bottom:4px; font-size:0.87rem;">Código nueva prenda:</div>
-          <input
-            type="text"
-            class="pending-new-code"
-            data-id-devolucion="${p.id_devolucion}"
-            data-nombre-viejo="${p.nombre}"
-            placeholder="Escanear o ingresar código"
-            style="width:100%; padding:9px 12px; border:1.5px solid var(--line); border-radius:9px; font-size:0.95rem; background:var(--surface); color:var(--text); box-sizing:border-box;"
-          />
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-weight:600; font-size:0.87rem;">Prendas nuevas que se lleva:</div>
+          <button type="button" class="btn secondary-btn add-pending-item-btn"
+            style="padding:4px 10px; font-size:0.8rem; border-radius:6px;">+ Agregar prenda</button>
         </div>
-        
-        <div style="display:flex; gap:12px;">
+
+        <div class="pending-items-container" style="display:flex; flex-direction:column; gap:6px;">
+          <div class="pending-item-row" style="display:flex; gap:8px; align-items:center;">
+            <input type="text" class="pending-new-code"
+              data-id-devolucion="${p.id_devolucion}"
+              data-nombre-viejo="${p.nombre}"
+              data-max-qty="${p.cantidad}"
+              placeholder="Código de prenda nueva"
+              style="flex:3; padding:9px 12px; border:1.5px solid var(--line); border-radius:9px; font-size:0.95rem; background:var(--surface); color:var(--text); box-sizing:border-box;"
+            />
+            <input type="number" class="pending-item-qty" value="1" min="1" placeholder="Cant"
+              style="flex:1; padding:9px 12px; border:1.5px solid var(--line); border-radius:9px; font-size:0.95rem; background:var(--surface); color:var(--text); box-sizing:border-box;"
+            />
+            <button type="button" class="btn secondary-btn remove-pending-item-btn"
+              style="padding:8px 10px; border-radius:9px; color:var(--danger);">✕</button>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:12px; margin-top:2px;">
           <div style="flex:1;">
-            <div style="font-weight:600; margin-bottom:4px; font-size:0.87rem;">Cantidad a agregar:</div>
-            <input
-              type="number"
-              class="pending-qty"
-              min="1"
-              max="${p.cantidad}"
-              value="${p.cantidad}"
+            <div style="font-weight:600; margin-bottom:4px; font-size:0.87rem;">Unidades a retirar:</div>
+            <input type="number" class="pending-qty" min="1" max="${p.cantidad}" value="${p.cantidad}"
               style="width:100%; padding:9px 12px; border:1.5px solid var(--line); border-radius:9px; font-size:0.95rem; background:var(--surface); color:var(--text); box-sizing:border-box;"
             />
           </div>
           <div style="flex:2;">
             <div style="font-weight:600; margin-bottom:4px; font-size:0.87rem;">Motivo:</div>
-            <input
-              type="text"
-              class="pending-motivo"
-              value="${p.motivo || 'Cambio / Talla'}"
-              placeholder="Motivo del cambio"
+            <input type="text" class="pending-motivo" value="${p.motivo || 'Cambio / Talla'}" placeholder="Motivo del cambio"
               style="width:100%; padding:9px 12px; border:1.5px solid var(--line); border-radius:9px; font-size:0.95rem; background:var(--surface); color:var(--text); box-sizing:border-box;"
             />
           </div>
@@ -1282,7 +1284,7 @@ async function openUpdateInvoiceModal() {
       </div>
       ${pendingCards}
       <div style="margin-top:6px; font-size:0.82rem; color:var(--muted);">
-        Deja en blanco los que no deseas completar ahora.
+        💡 Puedes agregar varias prendas por cada prenda devuelta (ej: 1 camisa de $50k → 1 crop top $25k + 1 blusa $25k). Deja en blanco los que no deseas completar ahora.
       </div>
     </div>
   `;
@@ -1303,34 +1305,53 @@ async function openUpdateInvoiceModal() {
           let errors = [];
 
           for (const card of cards) {
-            const input = card.querySelector(".pending-new-code");
-            const newCodigo = input.value.trim().replace(/`/g, "-");
-            if (!newCodigo) continue; // saltar si no ingresaron código
+            const firstCodeInput = card.querySelector(".pending-new-code");
+            const idDevolucion = Number(firstCodeInput.dataset.idDevolucion);
+            const nombreViejo = firstCodeInput.dataset.nombreViejo;
+            const maxCantidad = Number(firstCodeInput.dataset.maxQty || 1);
 
-            const idDevolucion = Number(input.dataset.idDevolucion);
-            const nombreViejo = input.dataset.nombreViejo;
-            
             const qtyInput = card.querySelector(".pending-qty");
             const motivoInput = card.querySelector(".pending-motivo");
-            
             const cantidad = Number(qtyInput.value);
-            const maxCantidad = Number(qtyInput.max);
             const motivo = motivoInput.value.trim();
+
+            // Recoger todos los productos nuevos de esta card
+            const itemRows = card.querySelectorAll(".pending-item-row");
+            const newItems = [];
+            for (const row of itemRows) {
+              const codeEl = row.querySelector("input[type='text']");
+              const qtyEl = row.querySelector(".pending-item-qty");
+              const code = (codeEl?.value || "").trim().replace(/`/g, "-");
+              const qty = Number(qtyEl?.value || 1);
+              if (code && qty > 0) newItems.push({ codigo: code, cantidad: qty });
+            }
+
+            if (newItems.length === 0) continue; // card sin productos → saltar
 
             if (isNaN(cantidad) || cantidad < 1 || cantidad > maxCantidad) {
               errors.push(`Cantidad no válida para "${nombreViejo}". Debe ser entre 1 y ${maxCantidad}.`);
               continue;
             }
 
-            // Verificar que el nuevo producto existe antes de confirmar
-            let newProd = null;
-            try {
-              const prodResp = await apiCall("get_product", newCodigo);
-              newProd = prodResp.data;
-            } catch (err) {
-              errors.push(`Producto ${newCodigo} no encontrado.`);
-              continue;
+            // Verificar que todos los productos existen
+            let newProdsInfo = [];
+            let allFound = true;
+            for (const item of newItems) {
+              try {
+                const prodResp = await apiCall("get_product", item.codigo);
+                newProdsInfo.push({ ...prodResp.data, reqQty: item.cantidad });
+              } catch (err) {
+                errors.push(`Producto "${item.codigo}" no encontrado.`);
+                allFound = false;
+              }
             }
+            if (!allFound) continue;
+
+            const entraHtml = newProdsInfo.map(np =>
+              `<div style="padding:6px 12px; background:var(--surface-2); border-radius:8px; margin:3px 0;">
+                ${np.reqQty} × ${np.nombre} <span style="color:var(--muted)">(${np.codigo})</span> · ${money(np.precio)}
+              </div>`
+            ).join("");
 
             // Pedir confirmación individual
             await new Promise((resolve) => {
@@ -1338,14 +1359,13 @@ async function openUpdateInvoiceModal() {
                 "Confirmar cambio",
                 `<div style="line-height:1.7; font-size:0.95rem;">
                   <div><strong>Ticket:</strong> #${ticketId}</div>
-                  <div style="margin-top:10px;"><strong>❌ Sale:</strong></div>
+                  <div style="margin-top:10px;"><strong>❌ Sale del ticket:</strong></div>
                   <div style="padding:8px 14px; background:var(--surface-2); border-radius:8px; margin:4px 0;">
                     ${cantidad} × ${nombreViejo}
                   </div>
-                  <div style="margin-top:10px;"><strong>✅ Entra:</strong></div>
-                  <div style="padding:8px 14px; background:var(--surface-2); border-radius:8px; margin:4px 0;">
-                    ${cantidad} × ${newProd.nombre} <span style="color:var(--muted)">(${newCodigo})</span> · ${money(newProd.precio)}
-                  </div>
+                  <div style="margin-top:10px;"><strong>✅ Entra al ticket:</strong></div>
+                  ${entraHtml}
+                  <div style="margin-top:8px; color:var(--muted); font-size:0.87rem;">Motivo: ${motivo}</div>
                 </div>`,
                 [
                   { label: "Cancelar este", kind: "secondary-btn", onClick: () => resolve(false) },
@@ -1356,13 +1376,12 @@ async function openUpdateInvoiceModal() {
                       try {
                         const result = await apiCall("complete_exchange", {
                           id_devolucion: idDevolucion,
-                          new_codigo: newCodigo,
+                          new_items: newItems,
                           cantidad: cantidad,
                           motivo: motivo,
                         });
                         lastTotal = result.data?.new_total || lastTotal;
                         anyDone = true;
-                        // Imprimir factura actualizada
                         if (result.data?.new_total) {
                           const detRes = await apiCall("get_sale_details", { id_venta: ticketId });
                           const saleRes2 = await apiCall("get_sale", { id_venta: ticketId });
@@ -1401,9 +1420,42 @@ async function openUpdateInvoiceModal() {
             hideModal();
           }
         },
+
       },
     ]
   );
+
+  // Bind botones "+Agregar prenda" y "✕ eliminar fila" en el modal de cambio pendiente
+  document.querySelectorAll('.add-pending-item-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const card = btn.closest('.pending-card');
+      const container = card.querySelector('.pending-items-container');
+      const row = document.createElement('div');
+      row.className = 'pending-item-row';
+      row.style.cssText = 'display:flex; gap:8px; align-items:center;';
+      row.innerHTML = `
+        <input type="text" placeholder="Código de prenda nueva"
+          style="flex:3; padding:9px 12px; border:1.5px solid var(--line); border-radius:9px; font-size:0.95rem; background:var(--surface); color:var(--text); box-sizing:border-box;" />
+        <input type="number" class="pending-item-qty" value="1" min="1" placeholder="Cant"
+          style="flex:1; padding:9px 12px; border:1.5px solid var(--line); border-radius:9px; font-size:0.95rem; background:var(--surface); color:var(--text); box-sizing:border-box;" />
+        <button type="button" class="btn secondary-btn" style="padding:8px 10px; border-radius:9px; color:var(--danger);">✕</button>
+      `;
+      const removeBtn = row.querySelector('button');
+      removeBtn.onclick = () => {
+        if (container.querySelectorAll('.pending-item-row').length > 1) row.remove();
+      };
+      container.appendChild(row);
+      row.querySelector('input[type="text"]').focus();
+    });
+  });
+
+  document.querySelectorAll('.remove-pending-item-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const row = btn.closest('.pending-item-row');
+      const container = row.closest('.pending-items-container');
+      if (container.querySelectorAll('.pending-item-row').length > 1) row.remove();
+    });
+  });
 }
 
 // Flujo clásico de cambio cuando NO hay cambios pendientes
