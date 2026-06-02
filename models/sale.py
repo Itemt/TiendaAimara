@@ -161,11 +161,13 @@ class SaleModel:
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT v.id_venta, v.fecha, v.total,
-                   COALESCE((SELECT SUM(d.cantidad * (dv.subtotal / dv.cantidad))
-                             FROM devoluciones d
-                             JOIN detalles_venta dv ON dv.id_venta = d.id_venta AND dv.codigo_producto = d.codigo_producto
-                             WHERE d.id_venta = v.id_venta), 0) AS devoluciones_total,
+            SELECT v.id_venta, v.fecha, 
+                   COALESCE((SELECT SUM(subtotal) FROM detalles_venta dv WHERE dv.id_venta = v.id_venta), 0) AS total,
+                   COALESCE((
+                       SELECT SUM(d.cantidad * (dv.subtotal / dv.cantidad))
+                       FROM devoluciones d
+                       JOIN detalles_venta dv ON dv.id_venta = d.id_venta AND dv.codigo_producto = d.codigo_producto
+                       WHERE d.id_venta = v.id_venta), 0) AS devoluciones_total,
                    COALESCE(v.metodo_pago, 'Efectivo') AS metodo_pago
             FROM ventas v
             ORDER BY v.fecha DESC
@@ -183,14 +185,14 @@ class SaleModel:
             """
             SELECT v.id_venta,
                    v.fecha,
-                   v.total,
+                   COALESCE((SELECT SUM(subtotal) FROM detalles_venta dv WHERE dv.id_venta = v.id_venta), 0) AS total,
                    COALESCE((
                        SELECT SUM(d.cantidad * (dv.subtotal / dv.cantidad))
                        FROM devoluciones d
                        JOIN detalles_venta dv ON dv.id_venta = d.id_venta AND dv.codigo_producto = d.codigo_producto
                        WHERE d.id_venta = v.id_venta
                    ), 0) AS total_devuelto,
-                   v.total - COALESCE((
+                   COALESCE((SELECT SUM(subtotal) FROM detalles_venta dv WHERE dv.id_venta = v.id_venta), 0) - COALESCE((
                        SELECT SUM(d.cantidad * (dv.subtotal / dv.cantidad))
                        FROM devoluciones d
                        JOIN detalles_venta dv ON dv.id_venta = d.id_venta AND dv.codigo_producto = d.codigo_producto
@@ -219,7 +221,7 @@ class SaleModel:
     def get_dashboard_stats():
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*), COALESCE(SUM(total),0) FROM ventas")
+        cursor.execute("SELECT COUNT(*), COALESCE((SELECT SUM(subtotal) FROM detalles_venta),0) FROM ventas")
         sales_count, gross_total = cursor.fetchone()
         cursor.execute("SELECT COUNT(*), COALESCE(SUM(stock),0) FROM productos")
         products_count, stock_total = cursor.fetchone()

@@ -292,9 +292,24 @@ class ReturnModel:
             old_dv = cursor.fetchone()
             if old_dv:
                 id_detalle, old_cant, old_subtotal, completado_devuelto = old_dv
-                restante_para_subtotal = int(old_cant) - int(completado_devuelto)
-                old_price_unit = float(old_subtotal) / restante_para_subtotal if restante_para_subtotal > 0 else 0
-                nuevo_subtotal_viejo = max(old_price_unit * (restante_para_subtotal - cantidad), 0)
+                
+                # Obtener precio actual como base robusta
+                cursor.execute("SELECT precio FROM productos WHERE codigo = ?", (old_codigo,))
+                prod_row = cursor.fetchone()
+                current_price = float(prod_row[0]) if prod_row else 0
+                
+                true_price = current_price
+                if float(old_subtotal) > 0 and current_price > 0:
+                    restante_est = round(float(old_subtotal) / current_price)
+                    if restante_est > 0:
+                        true_price = float(old_subtotal) / restante_est
+                elif float(old_subtotal) > 0:
+                    restante = int(old_cant) - int(completado_devuelto)
+                    if restante > 0:
+                        true_price = float(old_subtotal) / restante
+                        
+                nuevo_subtotal_viejo = max(float(old_subtotal) - (true_price * cantidad), 0)
+                
                 cursor.execute(
                     "UPDATE detalles_venta SET subtotal = ? WHERE id_detalle = ?",
                     (nuevo_subtotal_viejo, id_detalle),
@@ -425,7 +440,21 @@ class ReturnModel:
             if cantidad <= 0 or cantidad > restante_para_cambio:
                 return False, f"La cantidad a cambiar ({cantidad}) es inválida. Disponible: {restante_para_cambio}.", None
 
-            old_precio_unit = float(old_subtotal) / restante_para_subtotal if restante_para_subtotal > 0 else 0
+            # Obtener precio actual como base robusta
+            cursor.execute("SELECT precio FROM productos WHERE codigo = ?", (old_codigo,))
+            prod_row = cursor.fetchone()
+            current_price = float(prod_row[0]) if prod_row else 0
+            
+            true_price = current_price
+            if float(old_subtotal) > 0 and current_price > 0:
+                restante_est = round(float(old_subtotal) / current_price)
+                if restante_est > 0:
+                    true_price = float(old_subtotal) / restante_est
+            elif float(old_subtotal) > 0:
+                if restante_para_subtotal > 0:
+                    true_price = float(old_subtotal) / restante_para_subtotal
+            
+            old_precio_unit = true_price
             
             # Preparar nuevos items
             new_items_data = []
