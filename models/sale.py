@@ -253,6 +253,7 @@ class SaleModel:
                     (cantidad, codigo_producto),
                 )
 
+            cursor.execute("DELETE FROM cambios WHERE id_venta=?", (id_venta,))
             cursor.execute("DELETE FROM devoluciones WHERE id_venta=?", (id_venta,))
             cursor.execute("DELETE FROM detalles_venta WHERE id_venta=?", (id_venta,))
             cursor.execute("DELETE FROM ventas WHERE id_venta=?", (id_venta,))

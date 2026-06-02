@@ -155,6 +155,7 @@ function printReceiptDirect(saleId, total, items, metodoPago, cancelo, clienteNo
 
       <!-- TOTALES -->
       <div class="tot-row"><span>TOTAL PRODUCTOS:</span><span>${items.length}</span></div>
+      <div class="tot-row"><span>IVA (19% inc.):</span><span>${fmt(total - (total / 1.19))}</span></div>
       <div class="tot-row big"><span>TOTAL:</span><span>${fmt(total)}</span></div>
       <div class="tot-row"><span>CANCELO:</span><span>${fmt(cancelo)}</span></div>
       <div class="tot-row"><span>CAMBIO:</span><span>${fmt(cambio)}</span></div>
@@ -173,9 +174,16 @@ function printReceiptDirect(saleId, total, items, metodoPago, cancelo, clienteNo
       <div>VENDEDOR: ${cajero}</div>
       <div class="sep2"></div>
       <div class="center" style="font-size:8px; margin-top:4px;">
-        <div>Conserve este ticket para cambios.</div>
-        <div>Plazo: 15 días. Etiquetas originales.</div>
-        <div>¡GRACIAS POR SU COMPRA!</div>
+        <div style="font-weight:bold; margin-bottom: 2px;">Políticas de cambio:</div>
+        <div style="text-align: left; padding: 0 4px; margin-bottom: 4px;">
+          <div>• Solo cambios en domicilio o regalo.</div>
+          <div>• Prendas verificadas en tienda.</div>
+          <div>• Plazo de 2 días hábiles.</div>
+          <div>• Conservar excelente estado y etiquetas.</div>
+          <div>• No hay devoluciones de dinero.</div>
+          <div>• Sujeto a disponibilidad de inventario.</div>
+        </div>
+        <div style="font-weight:bold;">¡GRACIAS POR SU COMPRA!</div>
       </div>
 
       <script>
@@ -948,7 +956,7 @@ async function previewSale() {
         });
         if (result.ok && result.data) {
           const itemsForPrint = state.cart.map(i => ({ ...i }));
-          printReceiptDirect(result.data.id_venta, result.data.total, itemsForPrint, metodoPago, cancelo);
+          printReceiptDirect(result.data.id_venta, result.data.total, itemsForPrint, metodoPago, cancelo, clienteNombre, clienteDocumento, clienteTelefono);
           showModal(
             "✅ Venta confirmada",
             `<div style="text-align:center;padding:8px 0;">

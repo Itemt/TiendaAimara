@@ -223,13 +223,14 @@ class PrinterManager:
         Path(output_filename).parent.mkdir(parents=True, exist_ok=True)
 
         LABEL_W = 58 * mm
-        # Altura dinámica: base 70mm + 12mm por producto + espacio para cliente
-        base_h = 70
+        # Altura dinámica: base 100mm + 12mm por producto + espacio para cliente
+        base_h = 100
         if sale_data.get('cliente_nombre'):
             base_h += 15
         LABEL_H = (base_h + len(products_list) * 12) * mm
 
         c = canvas.Canvas(output_filename, pagesize=(LABEL_W, LABEL_H))
+        c.setFillColorRGB(0, 0, 0)
         
         # Margen e inicio en y
         margin = 3 * mm
@@ -300,14 +301,39 @@ class PrinterManager:
         y -= 3 * mm
         c.line(margin, y, LABEL_W - margin, y)
 
-        # Total (negrita)
+        # Total (negrita) e IVA
+        y -= 5 * mm
+        c.setFont("Helvetica-Bold", 8)
+        total_val = float(sale_data['total'])
+        iva_val = total_val - (total_val / 1.19)
+        c.drawString(margin, y, "IVA (19% inc.):")
+        c.drawRightString(LABEL_W - margin, y, f"${iva_val:.2f}")
+
         y -= 5 * mm
         c.setFont("Helvetica-Bold", 9)
         c.drawString(margin, y, "TOTAL:")
-        c.drawRightString(LABEL_W - margin, y, f"${float(sale_data['total']):.2f}")
+        c.drawRightString(LABEL_W - margin, y, f"${total_val:.2f}")
+
+        # Politicas
+        y -= 6 * mm
+        c.setFont("Helvetica-Bold", 7)
+        c.drawCentredString(LABEL_W / 2, y, "Políticas de cambio:")
+        y -= 3 * mm
+        c.setFont("Helvetica", 6)
+        c.drawCentredString(LABEL_W / 2, y, "Solo cambios en domicilio o regalo.")
+        y -= 2.5 * mm
+        c.drawCentredString(LABEL_W / 2, y, "Prendas verificadas en tienda.")
+        y -= 2.5 * mm
+        c.drawCentredString(LABEL_W / 2, y, "Plazo de 2 días hábiles.")
+        y -= 2.5 * mm
+        c.drawCentredString(LABEL_W / 2, y, "Conservar estado y etiquetas.")
+        y -= 2.5 * mm
+        c.drawCentredString(LABEL_W / 2, y, "No hay devoluciones de dinero.")
+        y -= 2.5 * mm
+        c.drawCentredString(LABEL_W / 2, y, "Sujeto a disponibilidad.")
 
         # Mensaje final (negrita)
-        y -= 8 * mm
+        y -= 6 * mm
         c.setFont("Helvetica-Bold", 8)
         c.drawCentredString(LABEL_W / 2, y, "¡GRACIAS POR SU COMPRA!")
         
