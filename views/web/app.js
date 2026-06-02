@@ -90,11 +90,12 @@ function printReceiptDirect(saleId, total, items, metodoPago, cancelo, clienteNo
           padding: 3mm 3mm 10mm 3mm;
           font-family: 'Courier New', Courier, monospace;
           font-size: 9.5px;
-          font-weight: bold;
-          color: #000;
+          font-weight: 900;
+          color: #000 !important;
           background: #fff;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
+          -webkit-text-stroke: 0.3px #000;
         }
         .center { text-align: center; }
         .right  { text-align: right; }
@@ -1364,7 +1365,9 @@ async function openUpdateInvoiceModal() {
                         // Imprimir factura actualizada
                         if (result.data?.new_total) {
                           const detRes = await apiCall("get_sale_details", { id_venta: ticketId });
-                          printReceiptDirect(ticketId, result.data.new_total, detRes.data || []);
+                          const saleRes2 = await apiCall("get_sale", { id_venta: ticketId });
+                          const sData2 = saleRes2.data || {};
+                          printReceiptDirect(ticketId, result.data.new_total, detRes.data || [], sData2.metodo_pago, result.data.new_total, sData2.cliente_nombre, sData2.cliente_documento, sData2.cliente_telefono);
                         }
                       } catch (err) {
                         errors.push(err.message);

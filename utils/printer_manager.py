@@ -237,24 +237,24 @@ class PrinterManager:
         y = LABEL_H - 8 * mm
 
         # Header
-        c.setFont("Helvetica-Bold", 11)
+        c.setFont("Helvetica-Bold", 12)
         c.drawCentredString(LABEL_W / 2, y, "TIENDA AIMARA")
         y -= 4 * mm
-        c.setFont("Helvetica-Bold", 8)
+        c.setFont("Helvetica-Bold", 9)
         c.drawCentredString(LABEL_W / 2, y, "POS boutique")
         
         y -= 6 * mm
-        c.setFont("Helvetica-Bold", 8.5)
+        c.setFont("Helvetica-Bold", 9)
         c.drawString(margin, y, f"TICKET #: {sale_data['id_venta']}")
         
         # Fecha actual (negrita)
         now_str = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
-        c.setFont("Helvetica-Bold", 7.5)
+        c.setFont("Helvetica-Bold", 8.5)
         c.drawRightString(LABEL_W - margin, y, now_str)
 
         y -= 3.5 * mm
         metodo = sale_data.get('metodo_pago', 'Efectivo') or 'Efectivo'
-        c.setFont("Helvetica-Bold", 7.5)
+        c.setFont("Helvetica-Bold", 8.5)
         c.drawString(margin, y, f"Pago: {metodo}")
         
         # Datos del cliente si existen
@@ -270,21 +270,22 @@ class PrinterManager:
                 c.drawString(margin, y, f"Tel: {sale_data['cliente_telefono']}")
 
         y -= 3 * mm
-        c.setLineWidth(0.5)
+        c.setLineWidth(1.0)
         c.line(margin, y, LABEL_W - margin, y)
 
         # Encabezados de tabla (negrita)
         y -= 4 * mm
-        c.setFont("Helvetica-Bold", 8)
+        c.setFont("Helvetica-Bold", 8.5)
         c.drawString(margin, y, "Cant.")
         c.drawString(margin + 8 * mm, y, "Producto")
         c.drawRightString(LABEL_W - margin, y, "Subtotal")
 
         y -= 2 * mm
+        c.setLineWidth(1.0)
         c.line(margin, y, LABEL_W - margin, y)
 
         # Productos (todos en negrita para mejor visibilidad térmica)
-        c.setFont("Helvetica-Bold", 8)
+        c.setFont("Helvetica-Bold", 8.5)
         for p in products_list:
             y -= 4.5 * mm
             c.drawString(margin, y, str(p["cantidad"]))
@@ -299,32 +300,33 @@ class PrinterManager:
             c.drawRightString(LABEL_W - margin, y, f"${subtotal:.2f}")
 
         y -= 3 * mm
+        c.setLineWidth(1.0)
         c.line(margin, y, LABEL_W - margin, y)
 
         # Total (negrita) e IVA
         y -= 5 * mm
-        c.setFont("Helvetica-Bold", 8)
+        c.setFont("Helvetica-Bold", 8.5)
         total_val = float(sale_data['total'])
         iva_val = total_val - (total_val / 1.19)
         c.drawString(margin, y, "IVA (19% inc.):")
         c.drawRightString(LABEL_W - margin, y, f"${iva_val:.2f}")
 
         y -= 5 * mm
-        c.setFont("Helvetica-Bold", 9)
+        c.setFont("Helvetica-Bold", 10)
         c.drawString(margin, y, "TOTAL:")
         c.drawRightString(LABEL_W - margin, y, f"${total_val:.2f}")
 
         # Politicas
         y -= 6 * mm
-        c.setFont("Helvetica-Bold", 7)
+        c.setFont("Helvetica-Bold", 7.5)
         c.drawCentredString(LABEL_W / 2, y, "Políticas de cambio:")
         y -= 3 * mm
-        c.setFont("Helvetica", 6)
+        c.setFont("Helvetica-Bold", 6.5)
         c.drawCentredString(LABEL_W / 2, y, "Solo cambios en domicilio o regalo.")
         y -= 2.5 * mm
         c.drawCentredString(LABEL_W / 2, y, "Prendas verificadas en tienda.")
         y -= 2.5 * mm
-        c.drawCentredString(LABEL_W / 2, y, "Plazo de 2 días hábiles.")
+        c.drawCentredString(LABEL_W / 2, y, "Plazo de 2 dias habiles.")
         y -= 2.5 * mm
         c.drawCentredString(LABEL_W / 2, y, "Conservar estado y etiquetas.")
         y -= 2.5 * mm
@@ -334,8 +336,8 @@ class PrinterManager:
 
         # Mensaje final (negrita)
         y -= 6 * mm
-        c.setFont("Helvetica-Bold", 8)
-        c.drawCentredString(LABEL_W / 2, y, "¡GRACIAS POR SU COMPRA!")
+        c.setFont("Helvetica-Bold", 9)
+        c.drawCentredString(LABEL_W / 2, y, "GRACIAS POR SU COMPRA!")
         
         c.save()
         return output_filename
