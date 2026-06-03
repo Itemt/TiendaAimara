@@ -1,3 +1,4 @@
 reportlab
 python-barcode
 Pillow
+pywebview>=4.4.1

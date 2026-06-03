@@ -22,8 +22,8 @@ python --version
 echo.
 echo [1/3] Instalando dependencias...
 echo --------------------------------------------------------
-pip install --upgrade pip >nul
-pip install pyinstaller "reportlab>=4.0" "python-barcode[images]>=0.15" "Pillow>=10.0"
+python -m pip install --upgrade pip >nul
+python -m pip install pyinstaller "reportlab>=4.0" "python-barcode[images]>=0.15" "Pillow>=10.0" pywebview
 if errorlevel 1 (
     echo [ERROR] Fallo al instalar dependencias.
     pause
@@ -35,7 +35,7 @@ echo.
 echo [2/3] Construyendo AimaraPos.exe (puede tardar 1-3 minutos)...
 echo --------------------------------------------------------
 if exist dist\AimaraPos.exe del /f dist\AimaraPos.exe
-pyinstaller aimara_pos.spec --clean --noconfirm
+python -m PyInstaller aimara_pos.spec --clean --noconfirm
 if errorlevel 1 (
     echo.
     echo [ERROR] PyInstaller reporto un error. Revisa los mensajes anteriores.

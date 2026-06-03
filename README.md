@@ -3,7 +3,7 @@
 Sistema de Punto de Venta y Control de Inventarios para **Tienda Aimara** (Boutique de Moda).  
 Desarrollado en Python + interfaz web local interactiva (HTML/CSS/JS) con servidor HTTP integrado de respuesta ultra rápida.
 
-> **Versión actual: v2.7.0**
+> **Versión actual: Final Release**
 
 ---
 
@@ -15,7 +15,6 @@ El sistema está diseñado de acuerdo a la operación específica y las polític
 - **Métricas en tiempo real**: Visualización rápida del número de tickets emitidos, ingresos brutos facturados, total de productos en catálogo y cantidad de productos con stock bajo.
 - **Alertas de reposición**: Listado automático de referencias con stock inferior a 5 unidades para evitar quiebres de inventario.
 - **Accesos directos**: Botones de navegación ágil para cobrar ventas, agregar productos o procesar devoluciones.
-- **Zona Administrativa**: Panel protegido para el borrado y depuración completa de la base de datos (con doble confirmación de seguridad).
 
 ### 2. Punto de Venta (POS)
 - **Lectura de Códigos**: Soporte para pistolas lectoras de códigos de barras convencionales (con traducción automática de caracteres de escáner) e ingreso manual con autocompletado.

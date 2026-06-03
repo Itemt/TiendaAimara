@@ -2,7 +2,6 @@ import json
 import mimetypes
 import socket
 import threading
-import webbrowser
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -116,7 +115,6 @@ class AimaraRequestHandler(BaseHTTPRequestHandler):
                 "next_product_code",
                 "logout",
                 "get_users",
-                "reset_database",
             }:
                 result = handler()
             else:
@@ -178,13 +176,10 @@ class AimaraWebApp:
             f"No se encontró un puerto libre desde {preferred_port} en adelante."
         )
 
-    def run(self):
-        url = f"http://{self.host}:{self.port}/"
-        threading.Timer(1.0, lambda: webbrowser.open(url)).start()
-        print(f"Aimara POS disponible en {url}")
+    def run_server(self):
         try:
             self.server.serve_forever()
-        except KeyboardInterrupt:
+        except Exception:
             pass
         finally:
             self.server.server_close()

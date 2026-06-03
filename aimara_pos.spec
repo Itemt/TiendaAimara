@@ -21,6 +21,7 @@ block_cipher = None
 hidden = (
     collect_submodules("reportlab")
     + collect_submodules("barcode")
+    + collect_submodules("webview")
     + [
         "PIL._imaging",
         "PIL.Image",
