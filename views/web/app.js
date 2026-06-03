@@ -613,7 +613,6 @@ async function refreshHistory() {
       <td>${sale.id_venta}</td>
       <td>${sale.fecha}</td>
       <td>${money(sale.total)}</td>
-      <td>${money(sale.total_devuelto)}</td>
       <td>${money(sale.total_neto)}</td>
       <td><span style="font-size:0.85rem; white-space:nowrap;">${metodoPagoIconos[sale.metodo_pago] || ''} ${sale.metodo_pago || 'Efectivo'}</span></td>
     </tr>
@@ -2118,6 +2117,8 @@ async function bindEvents() {
   $("#reprintBtn").addEventListener("click", guard(reprintSelectedSale));
   $("#editSaleBtn").addEventListener("click", guard(editSelectedSale));
   $("#voidSaleBtn").addEventListener("click", guard(deleteSelectedSale));
+  $("#exportExcelBtn").addEventListener("click", guard(exportHistoryExcel));
+  $("#exportPdfBtn").addEventListener("click", guard(exportHistoryPdf));
 
   $("#refreshDashboardBtn").addEventListener("click", guard(refreshDashboard));
   $("#resetDbBtn").addEventListener("click", guard(resetDatabaseFlow));
@@ -2176,6 +2177,153 @@ async function bindEvents() {
       updateSelectAllState();
     });
   }
+}
+
+// ── EXPORTAR HISTORIAL ─────────────────────────────────────────────────────────
+
+async function exportHistoryExcel() {
+  const response = await apiCall("get_sales", {});
+  const sales = response.data || [];
+  if (!sales.length) {
+    showModal("Exportar", "No hay ventas para exportar.", [{ label: "Aceptar", kind: "primary-btn" }]);
+    return;
+  }
+
+  const BOM = "\uFEFF";
+  const headers = ["Ticket", "Fecha", "Total Bruto", "Neto", "Método de Pago"];
+  const rows = sales.map(s => [
+    s.id_venta,
+    s.fecha,
+    Number(s.total || 0).toFixed(2),
+    Number(s.total_neto || 0).toFixed(2),
+    s.metodo_pago || "Efectivo"
+  ]);
+
+  const totalBruto = sales.reduce((sum, s) => sum + Number(s.total || 0), 0);
+  const totalNeto  = sales.reduce((sum, s) => sum + Number(s.total_neto || 0), 0);
+  rows.push([]);
+  rows.push(["TOTALES", "", totalBruto.toFixed(2), totalNeto.toFixed(2), ""]);
+
+  const csvContent = BOM + [headers, ...rows]
+    .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const hoy = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `historial_ventas_${hoy}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast("Historial exportado como Excel (.csv)");
+}
+
+async function exportHistoryPdf() {
+  const response = await apiCall("get_sales", {});
+  const sales = response.data || [];
+  if (!sales.length) {
+    showModal("Exportar", "No hay ventas para exportar.", [{ label: "Aceptar", kind: "primary-btn" }]);
+    return;
+  }
+
+  const fmt = (v) => '$' + Math.round(Number(v || 0)).toLocaleString('es-CO');
+  const totalBruto = sales.reduce((sum, s) => sum + Number(s.total || 0), 0);
+  const totalNeto  = sales.reduce((sum, s) => sum + Number(s.total_neto || 0), 0);
+  const hoy = new Date().toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const metodoPagoIconos = { 'Efectivo': '💵', 'Datáfono': '💳', 'Transferencia': '📲' };
+
+  const rowsHtml = sales.map(s => `
+    <tr>
+      <td>#${s.id_venta}</td>
+      <td>${s.fecha}</td>
+      <td class="right">${fmt(s.total)}</td>
+      <td class="right">${fmt(s.total_neto)}</td>
+      <td>${metodoPagoIconos[s.metodo_pago] || ''} ${s.metodo_pago || 'Efectivo'}</td>
+    </tr>
+  `).join('');
+
+  const html = `
+    <html>
+    <head>
+      <title>Historial de Ventas - Aimara Moda</title>
+      <style>
+        @page { size: A4; margin: 18mm 15mm; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #222; background: #fff; }
+        .header { text-align: center; margin-bottom: 18px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+        .header h1 { font-size: 16pt; font-weight: bold; margin-bottom: 4px; }
+        .header p  { font-size: 9pt; color: #555; }
+        .meta { display: flex; justify-content: space-between; margin-bottom: 14px; font-size: 9pt; color: #555; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+        th { background: #1a1a2e; color: #fff; padding: 7px 10px; text-align: left; font-size: 9.5pt; }
+        td { padding: 6px 10px; border-bottom: 1px solid #ddd; font-size: 9.5pt; }
+        .right { text-align: right; }
+        tr:nth-child(even) td { background: #f5f5f5; }
+        .totals-row td { font-weight: bold; background: #e8f4fd !important; border-top: 2px solid #1a1a2e; }
+        .summary { display: flex; gap: 18px; margin-top: 10px; }
+        .summary-card { flex: 1; border: 1px solid #ddd; border-radius: 6px; padding: 10px 14px; text-align: center; }
+        .summary-card .val { font-size: 14pt; font-weight: bold; color: #1a1a2e; margin-top: 4px; }
+        .summary-card .lbl { font-size: 8pt; color: #777; }
+        .footer { margin-top: 24px; text-align: center; font-size: 8pt; color: #aaa; border-top: 1px solid #eee; padding-top: 8px; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>AIMARA MODA &mdash; Historial de Ventas</h1>
+        <p>NIT: 700378458 &middot; Calle 50 #1-7 Barrancabermeja &middot; Tel: +57 311 837 1495</p>
+      </div>
+      <div class="meta">
+        <span>Generado: ${hoy}</span>
+        <span>Total de tickets: ${sales.length}</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Ticket</th>
+            <th>Fecha</th>
+            <th>Total Bruto</th>
+            <th>Neto</th>
+            <th>Método de Pago</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+          <tr class="totals-row">
+            <td colspan="2">TOTALES (${sales.length} ventas)</td>
+            <td class="right">${fmt(totalBruto)}</td>
+            <td class="right">${fmt(totalNeto)}</td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="summary">
+        <div class="summary-card">
+          <div class="lbl">Tickets emitidos</div>
+          <div class="val">${sales.length}</div>
+        </div>
+        <div class="summary-card">
+          <div class="lbl">Total Bruto</div>
+          <div class="val">${fmt(totalBruto)}</div>
+        </div>
+        <div class="summary-card">
+          <div class="lbl">Total Neto</div>
+          <div class="val">${fmt(totalNeto)}</div>
+        </div>
+      </div>
+      <div class="footer">Reporte generado por Aimara POS &mdash; ${hoy}</div>
+      <script>window.onload = function(){ window.print(); setTimeout(function(){ window.close(); }, 800); };<\/script>
+    </body>
+    </html>
+  `;
+
+  const pw = window.open('', '_blank', 'width=900,height=700');
+  if (!pw) {
+    alert('El navegador bloqueó la ventana de impresión. Permite las ventanas emergentes.');
+    return;
+  }
+  pw.document.write(html);
+  pw.document.close();
 }
 
 document.addEventListener("DOMContentLoaded", async () => {

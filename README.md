@@ -3,7 +3,7 @@
 Sistema de Punto de Venta para **Tienda Aimara** — boutique de moda.  
 Construido con Python + interfaz web local (HTML/CSS/JS) servida por un servidor HTTP embebido.
 
-> **Versión actual: v2.5.5**
+> **Versión actual: v2.7.0**
 
 ---
 
@@ -16,7 +16,7 @@ Construido con Python + interfaz web local (HTML/CSS/JS) servida por un servidor
 - **Stickers / etiquetas** — impresión directa 58 mm y PDF A4 con código de barras Code128
 - **Devoluciones** — gestión por ticket, reingreso de stock, trazabilidad completa
 - **Actualizar Factura** — cambio de producto en una venta existente con reimpresión inmediata
-- **Historial de ventas** — reporte con totales brutos, devueltos y netos; columna de método de pago
+- **Historial de ventas** — reporte con totales brutos y netos; columna de método de pago; exportación a PDF/Excel
 - **Dashboard** — métricas clave y alertas de stock bajo
 - **Usuarios** — roles admin / cajero con contraseña
 - **Modo oscuro / claro** — cambio de tema en un clic
@@ -69,6 +69,11 @@ Requiere Python 3.9+ y PyInstaller instalado. El ejecutable queda en `dist/Aimar
 ---
 
 ## 📋 Historial de versiones
+
+### v2.7.0 — 2026-06-03
+- 📊 **Exportar Historial** — Se agregaron opciones para exportar todas las ventas del historial a formatos Excel (.csv) y PDF.
+- 🧹 **Simplificación de columnas** — Se eliminó la columna "Devuelto" en el historial de ventas, ya que en la tienda todo artículo devuelto se cambia por otro de igual o mayor valor.
+- 🛠️ **Caché del Navegador** — Actualización del parámetro de versión del recurso `app.js` a `v2.7.0` en `index.html` para forzar la recarga de scripts en el navegador del cliente.
 
 ### v2.5.5 — 2026-06-01
 - 🚫 **Validación de precio en cambio** — Restaurada la regla: el valor **total combinado** de todas las prendas nuevas debe igualar o superar el valor de la prenda devuelta. Si el cliente escoge prendas que juntas suman menos (ej: top $50k → solo crop top $40k), el sistema rechaza el cambio con mensaje claro. Aplica tanto para uno como para varios productos nuevos.
