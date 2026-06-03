@@ -1402,6 +1402,7 @@ async function openUpdateInvoiceModal() {
           await refreshProducts();
           await refreshDashboard();
           await refreshHistory();
+          await loadRecentSalesForReturns();
           await loadReturnTicket(ticketId);
 
           if (errors.length > 0) {
@@ -1675,6 +1676,7 @@ async function openClassicSwapModal(ticketId) {
                           await refreshProducts();
                           await refreshDashboard();
                           await refreshHistory();
+                          await loadRecentSalesForReturns();
                           await loadReturnTicket(ticketId);
                         },
                       },

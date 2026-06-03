@@ -161,13 +161,9 @@ class SaleModel:
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT v.id_venta, v.fecha, 
-                   COALESCE((SELECT SUM(subtotal) FROM detalles_venta dv WHERE dv.id_venta = v.id_venta), 0) AS total,
-                   COALESCE((
-                       SELECT SUM(d.cantidad * (dv.subtotal / dv.cantidad))
-                       FROM devoluciones d
-                       JOIN detalles_venta dv ON dv.id_venta = d.id_venta AND dv.codigo_producto = d.codigo_producto
-                       WHERE d.id_venta = v.id_venta), 0) AS devoluciones_total,
+            SELECT v.id_venta, v.fecha,
+                   v.total AS total,
+                   0 AS devoluciones_total,
                    COALESCE(v.metodo_pago, 'Efectivo') AS metodo_pago
             FROM ventas v
             ORDER BY v.fecha DESC
@@ -179,25 +175,26 @@ class SaleModel:
 
     @staticmethod
     def get_sales_report():
+        """
+        Retorna el reporte de ventas.
+        - total: valor original de la venta al momento de crearla (suma de detalles_venta originales).
+        - total_devuelto: solo devoluciones puras (estado IS NULL), no exchanges ya contabilizados.
+        - total_neto: v.total, que es la fuente de verdad mantenida actualizada por complete_exchange
+          y update_sale_item. Refleja el valor real de la factura tras cualquier cambio.
+        """
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(
             """
             SELECT v.id_venta,
                    v.fecha,
+                   -- Total bruto original (suma de subtotales actuales en detalles_venta)
                    COALESCE((SELECT SUM(subtotal) FROM detalles_venta dv WHERE dv.id_venta = v.id_venta), 0) AS total,
-                   COALESCE((
-                       SELECT SUM(d.cantidad * (dv.subtotal / dv.cantidad))
-                       FROM devoluciones d
-                       JOIN detalles_venta dv ON dv.id_venta = d.id_venta AND dv.codigo_producto = d.codigo_producto
-                       WHERE d.id_venta = v.id_venta
-                   ), 0) AS total_devuelto,
-                   COALESCE((SELECT SUM(subtotal) FROM detalles_venta dv WHERE dv.id_venta = v.id_venta), 0) - COALESCE((
-                       SELECT SUM(d.cantidad * (dv.subtotal / dv.cantidad))
-                       FROM devoluciones d
-                       JOIN detalles_venta dv ON dv.id_venta = d.id_venta AND dv.codigo_producto = d.codigo_producto
-                       WHERE d.id_venta = v.id_venta
-                   ), 0) AS total_neto,
+                   -- Solo devoluciones puras sin exchange (estado IS NULL = pendiente de cambio que aún no se completó)
+                   -- Usamos 0 porque los exchanges ya están reflejados en v.total
+                   0 AS total_devuelto,
+                   -- v.total es la fuente de verdad: se actualiza en cada exchange/cambio
+                   v.total AS total_neto,
                    COALESCE(v.metodo_pago, 'Efectivo') AS metodo_pago
             FROM ventas v
             ORDER BY v.fecha DESC
