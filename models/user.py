@@ -5,11 +5,16 @@ class UserModel:
     def verify_login(username, password):
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM usuarios WHERE username = ? AND password = ?", (username, password))
-        user = cursor.fetchone()
+        cursor.execute("SELECT id, username, password, rol FROM usuarios")
+        rows = cursor.fetchall()
         conn.close()
-        if user:
-            return {"id": user[0], "username": user[1], "rol": user[3]}
+        if not username or not password:
+            return None
+        for row in rows:
+            db_username = row[1]
+            db_password = row[2]
+            if db_username.lower() == username.strip().lower() and db_password.lower() == password.strip().lower():
+                return {"id": row[0], "username": db_username, "rol": row[3]}
         return None
 
     @staticmethod

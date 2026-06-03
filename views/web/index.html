@@ -32,12 +32,12 @@
                     <button class="menu-item" data-view="history">
                         Historial
                     </button>
-                </nav>
-                <div class="sidebar-footer" style="display: flex; flex-direction: column; gap: 8px;">
-                    <button id="manualBtn" class="secondary-btn" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: bold; border: 1.5px solid var(--line);">
-                        📖 Manual de Uso
+                    <button class="menu-item" data-view="manual">
+                        Manual de Uso
                     </button>
-                    <button id="logoutBtn" class="ghost-btn" style="width: 100%;">
+                </nav>
+                <div class="sidebar-footer">
+                    <button id="logoutBtn" class="ghost-btn full">
                         Cerrar sesión
                     </button>
                 </div>
@@ -83,9 +83,6 @@
                                 Entrar
                             </button>
                         </form>
-                        <div class="hint">
-                            Usuario inicial: admin | Contraseña: admin123
-                        </div>
                     </div>
                 </section>
 
@@ -121,17 +118,6 @@
                                         Procesar devolución
                                     </button>
                                 </div>
-                            </div>
-                        </div>
-                        <div id="adminPanel" class="panel" style="margin-top: 18px; border-top: 4px solid #e53e3e;">
-                            <h3 style="color: #e53e3e; margin-bottom: 8px;">⚠️ Zona de Administrador</h3>
-                            <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 16px;">
-                                Esta acción borrará definitivamente ventas, productos y devoluciones. Solo para pruebas o limpieza.
-                            </p>
-                            <div class="quick-actions">
-                                <button id="resetDbBtn" class="danger-btn">
-                                    🗑️ Borrar toda la base de datos
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -456,6 +442,89 @@
                                     <tbody id="historyTable"></tbody>
                                 </table>
                             </div>
+                        </div>
+                    </div>
+
+                    <div id="manualView" class="view">
+                        <div class="panel" style="padding: 28px; line-height: 1.6; max-height: 80vh; overflow-y: auto;">
+                            <div style="text-align: center; border-bottom: 2px solid var(--line); padding-bottom: 12px; margin-bottom: 24px;">
+                                <h1 style="margin: 0; font-size: 2rem; color: var(--primary);">Manual de Usuario</h1>
+                                <p style="margin: 4px 0 0; color: var(--muted); font-style: italic;">Aimara POS — Sistema de Punto de Venta y Gestión de Inventarios</p>
+                            </div>
+
+                            <h2 style="color: var(--primary); margin: 20px 0 10px 0; font-size: 1.4rem; border-left: 4px solid var(--primary); padding-left: 8px;">1. Introducción y Acceso</h2>
+                            <p>
+                                <strong>Aimara POS</strong> es una herramienta diseñada para facilitar la operación diaria de la boutique. Permite facturar, controlar inventarios, procesar devoluciones y cambios, y realizar análisis de negocio.
+                            </p>
+                            <p>
+                                El sistema cuenta con un control de acceso por usuario y contraseña (insensible a mayúsculas/minúsculas):
+                            </p>
+                            <ul>
+                                <li><strong>Usuario:</strong> <code style="background: var(--surface-2); padding: 2px 6px; border-radius: 4px;">AimaraMF</code></li>
+                                <li><strong>Contraseña:</strong> <code style="background: var(--surface-2); padding: 2px 6px; border-radius: 4px;">AMF2025</code></li>
+                            </ul>
+
+                            <h2 style="color: var(--primary); margin: 24px 0 10px 0; font-size: 1.4rem; border-left: 4px solid var(--primary); padding-left: 8px;">2. Punto de Venta (POS)</h2>
+                            <p>
+                                El módulo principal de ventas permite realizar transacciones rápidas:
+                            </p>
+                            <ol>
+                                <li><strong>Lectura de código:</strong> Haga clic en el campo de búsqueda de código de barras y escanee la etiqueta del producto. Si lo prefiere, ingrese el código manualmente y presione Enter o haga clic en "Agregar".</li>
+                                <li><strong>Modificar cantidades:</strong> En la tabla del carrito puede cambiar directamente la cantidad de cada producto. El subtotal y el gran total se recalcularán de inmediato.</li>
+                                <li><strong>Proceso de Cobro:</strong>
+                                    <ul>
+                                        <li>Haga clic en <strong>"Cobrar"</strong>.</li>
+                                        <li>Seleccione el medio de pago: <strong>Efectivo</strong> 💵, <strong>Datáfono</strong> 💳 o <strong>Transferencia</strong> 📲.</li>
+                                        <li>Si selecciona <strong>Efectivo</strong>, aparecerá el campo "¿Cuánto cancela?". Ingrese el monto entregado por el cliente y el sistema le indicará en tiempo real el valor exacto del cambio a entregar.</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Impresión del Ticket:</strong> Al confirmar la venta, se abrirá de forma automática la ventana de impresión térmica de 58 mm adaptada a la norma comercial (con datos de cliente, IVA del 19% incluido, medio de pago detallado y políticas de cambio).</li>
+                            </ol>
+
+                            <h2 style="color: var(--primary); margin: 24px 0 10px 0; font-size: 1.4rem; border-left: 4px solid var(--primary); padding-left: 8px;">3. Control de Inventarios</h2>
+                            <p>
+                                Permite el control de stock, catalogación y generación de etiquetas de barras:
+                            </p>
+                            <ul>
+                                <li><strong>Crear / Editar Producto:</strong> Ingrese a "Inventario" &rarr; "Agregar producto". Indique nombre, precio, stock, talla y categoría. El código puede dejarse vacío para que el sistema lo autogenere automáticamente bajo el estándar de la tienda.</li>
+                                <li><strong>Alertas de Stock Bajo:</strong> En el panel del Dashboard se mostrará una alerta y un listado de aquellos productos con stock inferior a 5 unidades para gestionar su reposición.</li>
+                                <li><strong>Importación Masiva (CSV):</strong> Puede cargar catálogos desde Excel guardándolos en formato CSV. El importador del sistema detecta automáticamente los delimitadores (comas y puntos y comas) y la codificación para evitar errores de tildes o caracteres.</li>
+                                <li><strong>Impresión de Stickers de Código de Barra:</strong> Seleccione los productos marcando las casillas de la columna izquierda en la tabla y haga clic en <strong>"Imprimir stickers"</strong> para generar códigos continuos en rollo de 58 mm o plantillas en hoja A4.</li>
+                            </ul>
+
+                            <h2 style="color: var(--primary); margin: 24px 0 10px 0; font-size: 1.4rem; border-left: 4px solid var(--primary); padding-left: 8px;">4. Gestión de Devoluciones y Cambios</h2>
+                            <p>
+                                Debido a las políticas comerciales de la tienda, <strong>no se realizan devoluciones de dinero</strong>. Todo artículo devuelto debe ser cambiado por uno del mismo valor o superior:
+                            </p>
+                            <h3 style="margin-top: 10px; color: var(--text);">4.1 Registro de Devolución</h3>
+                            <ol>
+                                <li>Ingrese al módulo <strong>"Devoluciones"</strong>.</li>
+                                <li>Seleccione una venta reciente del listado de la izquierda o busque ingresando el número de ticket.</li>
+                                <li>En la prenda devuelta, especifique la cantidad a retornar y el motivo (ej. <em>"Garantía / Defecto"</em> o <em>"Cambio / Talla"</em>) y haga clic para procesar el retorno. El inventario se restablecerá automáticamente y quedará en estado <strong>"Pendiente de Cambio"</strong>.</li>
+                            </ol>
+                            <h3 style="margin-top: 10px; color: var(--text);">4.2 Completar el Cambio (Actualizar Factura)</h3>
+                            <ol>
+                                <li>Al seleccionar la venta con devolución pendiente, haga clic en el botón <strong>"🔄 Actualizar Factura"</strong>.</li>
+                                <li>Se abrirá un modal mostrando la prenda original devuelta y el saldo a favor disponible. Escanee o agregue la(s) nueva(s) prenda(s) que el cliente desea llevar (puede agregar múltiples prendas).</li>
+                                <li><strong>Regla de Precios:</strong> El sistema valida automáticamente que el total de las nuevas prendas sea <strong>igual o superior</strong> al valor de la prenda devuelta. De lo contrario, no permitirá guardar el cambio.</li>
+                                <li>Al guardar, el sistema actualizará el stock de los productos involucrados, recalculará los totales de la factura original y abrirá la reimpresión del ticket actualizado con el detalle del cambio realizado.</li>
+                            </ol>
+
+                            <h2 style="color: var(--primary); margin: 24px 0 10px 0; font-size: 1.4rem; border-left: 4px solid var(--primary); padding-left: 8px;">5. Historial, Reportes y Anulaciones</h2>
+                            <p>
+                                El módulo <strong>"Historial"</strong> consolida todas las transacciones para control contable y de auditoría:
+                            </p>
+                            <ul>
+                                <li><strong>Visualización Clara:</strong> Reporta de forma cronológica el número de ticket, fecha, total bruto facturado, neto real (recalculado tras cambios/devoluciones) y el método de pago utilizado.</li>
+                                <li><strong>Acciones del Historial:</strong>
+                                    <ul>
+                                        <li><strong>Reimprimir factura:</strong> Abre nuevamente el ticket térmico de la venta seleccionada.</li>
+                                        <li><strong>Anular venta:</strong> Cancela la transacción, eliminando los registros de cambios/devoluciones vinculados y regresando todos los productos vendidos al inventario.</li>
+                                        <li><strong>Editar venta:</strong> Permite modificar directamente los productos y totales de un ticket en caso de errores de digitación.</li>
+                                        <li><strong>Exportar Excel/PDF:</strong> Descarga un archivo compatible con Excel (.csv) o un reporte A4 en PDF para entrega a contabilidad.</li>
+                                    </ul>
+                                </li>
+                            </ul>
                         </div>
                     </div>
                     <!-- Removed usersView -->

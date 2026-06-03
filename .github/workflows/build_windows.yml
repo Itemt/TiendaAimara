@@ -133,7 +133,7 @@ jobs:
             ### Primer uso
             1. Ejecuta `AimaraPos` (Windows: .exe / macOS: .app)
             2. El navegador se abre automáticamente en `http://127.0.0.1:8765`
-            3. Usuario: **admin** · Contraseña: **admin123**
+            3. Usuario: **AimaraMF** · Contraseña: **AMF2025** (insensible a mayúsculas/minúsculas)
 
             ### Datos persistentes
             - **Windows**: `pos_aimara.db` se crea junto al `.exe`

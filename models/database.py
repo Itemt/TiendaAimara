@@ -91,11 +91,12 @@ def init_db():
     )
     """)
 
-    # Insertar admin por defecto si no existe
-    cursor.execute("SELECT * FROM usuarios WHERE username='admin'")
+    # Insertar AimaraMF por defecto si no existe, y limpiar admin heredado
+    cursor.execute("DELETE FROM usuarios WHERE username='admin'")
+    cursor.execute("SELECT * FROM usuarios WHERE username='AimaraMF'")
     if not cursor.fetchone():
         cursor.execute(
-            "INSERT INTO usuarios (username, password, rol) VALUES ('admin', 'admin123', 'admin')"
+            "INSERT INTO usuarios (username, password, rol) VALUES ('AimaraMF', 'AMF2025', 'admin')"
         )
 
     # Tabla Devoluciones
