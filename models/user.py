@@ -5,7 +5,16 @@ class UserModel:
     def verify_login(username, password):
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT id, username, password, rol FROM usuarios")
+        try:
+            cursor.execute("SELECT id, username, password, rol FROM usuarios")
+        except Exception as e:
+            if "no such table" in str(e).lower():
+                from models.database import init_db
+                init_db()
+                cursor.execute("SELECT id, username, password, rol FROM usuarios")
+            else:
+                raise e
+        
         rows = cursor.fetchall()
         conn.close()
         if not username or not password:
