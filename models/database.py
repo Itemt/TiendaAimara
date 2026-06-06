@@ -26,6 +26,8 @@ def _get_db_path() -> str:
 DB_PATH = _get_db_path()
 
 
+_db_initialized = False
+
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -146,6 +148,10 @@ def init_db():
 
 
 def get_connection():
+    global _db_initialized
+    if not _db_initialized:
+        init_db()
+        _db_initialized = True
     conn = sqlite3.connect(DB_PATH)
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
