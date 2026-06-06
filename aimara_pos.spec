@@ -130,3 +130,45 @@ else:
         entitlements_file=None,
         icon=None,              # Agrega un .ico aquí si tienes icono
     )
+
+    # ═══════════════════════════════════════════════════════════════════════════════
+    #  Windows → onefile  →  AimaraPos_Navegador.exe
+    # ═══════════════════════════════════════════════════════════════════════════════
+    a_web = Analysis(
+        ['main_web.py'],
+        pathex=[],
+        binaries=[],
+        datas=[
+            ("views/web", "views/web"),
+        ] + extra_datas,
+        hiddenimports=hidden,
+        hookspath=[],
+        hooksconfig={},
+        runtime_hooks=[],
+        excludes=[],
+        noarchive=False,
+        optimize=0,
+    )
+    pyz_web = PYZ(a_web.pure)
+    exe_web = EXE(
+        pyz_web,
+        a_web.scripts,
+        a_web.binaries,
+        a_web.zipfiles,
+        a_web.datas,
+        [],
+        name="AimaraPos_Navegador",
+        debug=False,
+        bootloader_ignore_signals=False,
+        strip=False,
+        upx=False,
+        upx_exclude=[],
+        runtime_tmpdir=None,
+        console=True, # Necesitamos consola para cerrar el servidor con Ctrl+C
+        disable_windowed_traceback=False,
+        argv_emulation=False,
+        target_arch=None,
+        codesign_identity=None,
+        entitlements_file=None,
+        icon=None,
+    )
