@@ -34,16 +34,35 @@ async function apiCall(method, ...args) {
   return data;
 }
 
+function printHtml(html) {
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'absolute';
+  iframe.style.width = '0px';
+  iframe.style.height = '0px';
+  iframe.style.border = 'none';
+  document.body.appendChild(iframe);
+  
+  const doc = iframe.contentWindow ? iframe.contentWindow.document : iframe.contentDocument;
+  doc.open();
+  doc.write(html);
+  doc.close();
+  
+  setTimeout(() => {
+    if (iframe.contentWindow) {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    }
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+    }, 1000);
+  }, 100);
+}
+
 function money(value) {
   return `$${Number(value || 0).toFixed(2)}`;
 }
 
 function printReceiptDirect(saleId, total, items, metodoPago, cancelo, clienteNombre, clienteDocumento, clienteTelefono) {
-  const printWindow = window.open('', '_blank', 'width=620,height=800');
-  if (!printWindow) {
-    alert('El navegador bloqueó la ventana de impresión. Permite las ventanas emergentes.');
-    return;
-  }
   const fmt = (value) => '$' + Math.round(Number(value || 0)).toLocaleString('es-CO');
   metodoPago = metodoPago || 'Efectivo';
   cancelo = Number(cancelo) || total;
@@ -186,15 +205,13 @@ function printReceiptDirect(saleId, total, items, metodoPago, cancelo, clienteNo
         </div>
         <div style="font-weight:bold;">¡GRACIAS POR SU COMPRA!</div>
       </div>
-
       <script>
-        window.onload = function() { window.print(); setTimeout(function(){ window.close(); }, 600); };
-      <\/script>
+        window.onload = function() { window.print(); };
+      </script>
     </body>
     </html>
   `;
-  printWindow.document.write(html);
-  printWindow.document.close();
+  printHtml(html);
 }
 
 async function printThermalStickersDirect(products) {
@@ -208,7 +225,6 @@ async function printThermalStickersDirect(products) {
     }
   }));
   
-  const printWindow = window.open('', '_blank', 'width=600,height=600');
   const itemsHtml = productsWithBarcodes.map(p => `
     <div class="sticker-item">
       <div class="product-name">${p.nombre.substring(0, 26)}</div>
@@ -291,14 +307,12 @@ async function printThermalStickersDirect(products) {
       <script>
         window.onload = function() {
           window.print();
-          setTimeout(function() { window.close(); }, 500);
         };
       </script>
     </body>
     </html>
   `;
-  printWindow.document.write(html);
-  printWindow.document.close();
+  printHtml(html);
 }
 
 async function printA4StickersDirect(products) {
@@ -312,7 +326,6 @@ async function printA4StickersDirect(products) {
     }
   }));
   
-  const printWindow = window.open('', '_blank', 'width=800,height=800');
   const stickersHtml = productsWithBarcodes.map(p => `
     <div class="sticker-card">
       <div class="product-name">Producto: ${p.nombre}</div>
@@ -384,14 +397,12 @@ async function printA4StickersDirect(products) {
       <script>
         window.onload = function() {
           window.print();
-          setTimeout(function() { window.close(); }, 500);
         };
       </script>
     </body>
     </html>
   `;
-  printWindow.document.write(html);
-  printWindow.document.close();
+  printHtml(html);
 }
 
 function showModal(title, body, actions = []) {
@@ -2232,18 +2243,11 @@ async function exportHistoryPdf() {
         </div>
       </div>
       <div class="footer">Reporte generado por Aimara POS &mdash; ${hoy}</div>
-      <script>window.onload = function(){ window.print(); setTimeout(function(){ window.close(); }, 800); };<\/script>
+      <script>window.onload = function(){ window.print(); };</script>
     </body>
     </html>
   `;
-
-  const pw = window.open('', '_blank', 'width=900,height=700');
-  if (!pw) {
-    alert('El navegador bloqueó la ventana de impresión. Permite las ventanas emergentes.');
-    return;
-  }
-  pw.document.write(html);
-  pw.document.close();
+  printHtml(html);
 }
 document.addEventListener("DOMContentLoaded", async () => {
   try {
