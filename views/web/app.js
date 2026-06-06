@@ -136,7 +136,7 @@ function printReceiptDirect(saleId, total, items, metodoPago, cancelo, clienteNo
       <div class="center">
         <div class="title">AIMARA MODA</div>
         <div>NIT: 700378458</div>
-        <div>Calle 50 #1-7 Barrancabermeja</div>
+        <div>Calle 50 #17-54 Barrio Colombia, Barrancabermeja, Colombia</div>
         <div>Tel: +57 311 837 1495</div>
         <div>IG: @Aimara_ModaFashion09</div>
       </div>
@@ -2189,7 +2189,7 @@ async function exportHistoryPdf() {
     <body>
       <div class="header">
         <h1>AIMARA MODA &mdash; Historial de Ventas</h1>
-        <p>NIT: 700378458 &middot; Calle 50 #1-7 Barrancabermeja &middot; Tel: +57 311 837 1495</p>
+        <p>NIT: 700378458 &middot; Calle 50 #17-54 Barrio Colombia, Barrancabermeja, Colombia &middot; Tel: +57 311 837 1495</p>
       </div>
       <div class="meta">
         <span>Generado: ${hoy}</span>
