@@ -197,7 +197,8 @@ function printReceiptDirect(saleId, total, items, metodoPago, cancelo, clienteNo
         <div style="font-weight:bold; margin-bottom: 2px;">Políticas de cambio:</div>
         <div style="text-align: left; padding: 0 4px; margin-bottom: 4px;">
           <div>• Solo cambios en domicilio o regalo.</div>
-          <div>• Prendas verificadas en tienda.</div>
+          <div>• Prendas medidas en la tienda no tienen cambio.</div>
+          <div>• Se debe traer la factura de compra.</div>
           <div>• Plazo de 2 días hábiles.</div>
           <div>• Conservar excelente estado y etiquetas.</div>
           <div>• No hay devoluciones de dinero.</div>
