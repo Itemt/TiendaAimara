@@ -78,7 +78,7 @@ if IS_MAC:
         target_arch=None,
         codesign_identity=None,
         entitlements_file=None,
-        icon=None,              # Agrega un .icns aquí si tienes icono
+        icon='assets/icon.icns',              # Agrega un .icns aquí si tienes icono
     )
     coll = COLLECT(
         exe,
@@ -93,7 +93,7 @@ if IS_MAC:
     app = BUNDLE(
         coll,
         name="AimaraPos.app",
-        icon=None,
+        icon='assets/icon.icns',
         bundle_identifier="com.tiendaaimara.pos",
         info_plist={
             "CFBundleName":             "Aimara POS",
@@ -128,7 +128,7 @@ else:
         target_arch=None,
         codesign_identity=None,
         entitlements_file=None,
-        icon=None,              # Agrega un .ico aquí si tienes icono
+        icon='assets/icon.ico',              # Agrega un .ico aquí si tienes icono
     )
 
     # ═══════════════════════════════════════════════════════════════════════════════
@@ -170,5 +170,5 @@ else:
         target_arch=None,
         codesign_identity=None,
         entitlements_file=None,
-        icon=None,
+        icon='assets/icon.ico',
     )

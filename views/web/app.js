@@ -205,9 +205,6 @@ function printReceiptDirect(saleId, total, items, metodoPago, cancelo, clienteNo
         </div>
         <div style="font-weight:bold;">¡GRACIAS POR SU COMPRA!</div>
       </div>
-      <script>
-        window.onload = function() { window.print(); };
-      </script>
     </body>
     </html>
   `;
@@ -304,11 +301,6 @@ async function printThermalStickersDirect(products) {
     </head>
     <body>
       ${itemsHtml}
-      <script>
-        window.onload = function() {
-          window.print();
-        };
-      </script>
     </body>
     </html>
   `;
@@ -394,11 +386,6 @@ async function printA4StickersDirect(products) {
       <div class="grid-container">
         ${stickersHtml}
       </div>
-      <script>
-        window.onload = function() {
-          window.print();
-        };
-      </script>
     </body>
     </html>
   `;
