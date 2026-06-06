@@ -34,17 +34,10 @@ class PrinterManager:
         receipt_text += f"TOTAL: ${sale_data['total']}\n"
         receipt_text += "    GRACIAS POR SU COMPRA!   \n\n\n"
 
-        # Guardar último ticket junto al ejecutable (o en el proyecto en dev)
-        import sys
-
-        if getattr(sys, "frozen", False):
-            receipt_path = str(
-                Path(sys.executable).resolve().parent / "last_receipt.txt"
-            )
-        else:
-            receipt_path = str(
-                Path(__file__).resolve().parent.parent / "last_receipt.txt"
-            )
+        # Guardar último ticket junto a la base de datos
+        from models.database import DB_PATH
+        receipt_path = str(Path(DB_PATH).parent / "last_receipt.txt")
+        
         with open(receipt_path, "w", encoding="utf-8") as f:
             f.write(receipt_text)
 
@@ -223,8 +216,8 @@ class PrinterManager:
         Path(output_filename).parent.mkdir(parents=True, exist_ok=True)
 
         LABEL_W = 58 * mm
-        # Altura dinámica: base 100mm + 12mm por producto + espacio para cliente
-        base_h = 100
+        # Altura dinámica: base 105mm + 12mm por producto + espacio para cliente
+        base_h = 105
         if sale_data.get('cliente_nombre'):
             base_h += 15
         LABEL_H = (base_h + len(products_list) * 12) * mm
@@ -324,7 +317,9 @@ class PrinterManager:
         c.setFont("Helvetica-Bold", 6.5)
         c.drawCentredString(LABEL_W / 2, y, "Solo cambios en domicilio o regalo.")
         y -= 2.5 * mm
-        c.drawCentredString(LABEL_W / 2, y, "Prendas verificadas en tienda.")
+        c.drawCentredString(LABEL_W / 2, y, "Prendas medidas no tienen cambio.")
+        y -= 2.5 * mm
+        c.drawCentredString(LABEL_W / 2, y, "Traer factura de compra.")
         y -= 2.5 * mm
         c.drawCentredString(LABEL_W / 2, y, "Plazo de 2 dias habiles.")
         y -= 2.5 * mm
